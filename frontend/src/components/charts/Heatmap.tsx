@@ -8,6 +8,13 @@ const WEEKDAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', '']
 
 /** Below this a cell is too small to hover or read, so the grid scrolls instead. */
 const MIN_CELL_PX = 8
+/** Above this a short range stops looking like a calendar and starts looking like tiles. */
+const MAX_CELL_PX = 14
+const CELL_GAP_PX = 3
+
+/** Width a grid of n columns needs at the given cell size. n columns have n-1 gaps. */
+const gridWidth = (columns: number, cell: number) =>
+  columns * cell + Math.max(columns - 1, 0) * CELL_GAP_PX
 
 /**
  * Shading levels cut at quartiles of the days that were actually worked.
@@ -80,14 +87,19 @@ export function Heatmap({ days }: { days: DayTotal[] }) {
       </div>
 
       {/*
-        The columns are fluid, not a fixed cell size.
-        A year is 53 columns; at 12px each that is wider than a readable text column,
-        so a fixed size forced a horizontal scrollbar on a desktop with room to spare.
-        Cells now divide whatever width they are given and stay square, down to a floor
-        below which they would stop being clickable - only then does this scroll.
+        The columns are fluid between a floor and a ceiling, rather than a fixed size.
+
+        A fixed 12px made a year 53 columns wide - about 800px - which forced a
+        horizontal scrollbar inside a 768px reading column. Letting them stretch
+        without limit was worse in the other direction: a range of six weeks turned
+        into a handful of enormous tiles.
+
+        So the columns divide the available width, the grid is capped at the size the
+        cells look right at, and it only scrolls once a cell would be too small to
+        hover.
       */}
       <div className="overflow-x-auto pb-1">
-        <div className="flex gap-2" style={{ minWidth: `${weeks.length * (MIN_CELL_PX + 3)}px` }}>
+        <div className="flex gap-2" style={{ minWidth: `${gridWidth(weeks.length, MIN_CELL_PX)}px` }}>
           <div className="grid shrink-0 grid-rows-7 gap-[3px] pt-px" aria-hidden="true">
             {WEEKDAY_LABELS.map((label, index) => (
               <span key={index} className="text-[10px] leading-none text-fg-subtle">
@@ -98,7 +110,10 @@ export function Heatmap({ days }: { days: DayTotal[] }) {
 
           <div
             className="grid min-w-0 flex-1 gap-[3px]"
-            style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}
+            style={{
+              gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))`,
+              maxWidth: `${gridWidth(weeks.length, MAX_CELL_PX)}px`,
+            }}
             onMouseLeave={() => setHovered(null)}
           >
             {weeks.map((week, weekIndex) => (
