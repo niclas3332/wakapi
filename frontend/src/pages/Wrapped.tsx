@@ -2,8 +2,8 @@ import { useEffect, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router'
 import clsx from 'clsx'
 
-import { useInsights, useWrapped, useWrappedYears } from '@/api/queries'
-import type { InsightsResponse, SummaryItem, WrappedResponse } from '@/api/types'
+import { useWrapped, useWrappedYears } from '@/api/queries'
+import type { SummaryItem, WrappedResponse } from '@/api/types'
 import { colorFor } from '@/lib/colors'
 import {
   formatDate,
@@ -19,14 +19,31 @@ import { SplitBar, aiHumanParts } from '@/components/charts/SplitBar'
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
+const daysInYear = (year: number) => (new Date(year, 1, 29).getMonth() === 1 ? 366 : 365)
+
 /**
- * A year told top to bottom rather than laid out in a grid.
+ * Whether a year was tracked end to end.
+ *
+ * The range starts at the first heartbeat, so the year someone signed up in covers only
+ * part of the calendar - 36 days, in the case that prompted this. Anything that reads
+ * as a year-on-year change has to know the difference.
+ */
+const wasFullYear = (year: { year: number; day_count: number }) =>
+  year.day_count >= daysInYear(year.year)
+
+/**
+ * A finished year told top to bottom rather than laid out in a grid.
  *
  * Every other screen in this app answers "what are my numbers" and is built for
  * scanning: dense cards, many figures at once. This one answers "what was my year",
  * which is a different question and reads badly in the same format. One statement per
  * band, the number at a size the rest of the app never uses, and the supporting detail
  * underneath it - so it is read in sequence instead of scanned.
+ *
+ * Only finished years appear. The server does not serve a year that is still running,
+ * and the picker does not offer one: half a year has no final total, no settled average
+ * and nothing meaningful to compare against the year before. The dashboard is where the
+ * year so far lives.
  */
 export function WrappedPage() {
   const [search, setSearch] = useSearchParams()
@@ -47,14 +64,9 @@ export function WrappedPage() {
   }, [year, years, requested, search, setSearch])
 
   const query = useWrapped(year)
-
-  // The year before, for comparison. A look back that cannot say "more than last year"
-  // is just a filtered dashboard.
-  //
-  // For a year still running, the comparison is against the same slice of the previous
-  // year rather than all of it - eight months of this year against twelve of last would
-  // report a collapse that is really just a calendar.
-  const previous = usePreviousYear(year, years.includes(year - 1))
+  // The year before, whole against whole. A look back that cannot say "more than last
+  // year" is just a filtered dashboard.
+  const previousQuery = useWrapped(years.includes(year - 1) ? year - 1 : undefined)
 
   if (yearsQuery.isError) {
     return (
@@ -98,7 +110,7 @@ export function WrappedPage() {
       </div>
 
       {!yearsQuery.isPending && years.length === 0 && (
-        <EmptyState message="Nothing tracked yet. Your first year appears here once an editor sends its first heartbeat." />
+        <EmptyState message="No finished year to look back on yet. Your first wrapped arrives in January — until then the dashboard has the year so far." />
       )}
 
       {query.isError && (
@@ -122,7 +134,7 @@ export function WrappedPage() {
 
       {data && data.total_seconds > 0 && (
         <div className="divide-y divide-ink-800">
-          <Opening data={data} previous={previous} />
+          <Opening data={data} previous={previousQuery.data} />
           <Showing data={data} />
           <Streak data={data} />
           <BusiestDay data={data} />
@@ -134,41 +146,6 @@ export function WrappedPage() {
       )}
     </div>
   )
-}
-
-type Comparison = {
-  year: number
-  seconds: number
-  /** True when only part of the previous year is being compared, and the copy says so. */
-  partial: boolean
-}
-
-const isoDate = (date: Date) => date.toISOString().slice(0, 10)
-
-/**
- * The previous year, cut to the same point in the calendar when the chosen year has not
- * finished yet.
- */
-function usePreviousYear(year: number | undefined, available: boolean): Comparison | undefined {
-  const now = new Date()
-  const running = year === now.getFullYear()
-
-  // A completed year is compared whole; a running one only up to today's date.
-  const range = year
-    ? {
-        from: `${year - 1}-01-01`,
-        to: running
-          ? isoDate(new Date(year - 1, now.getMonth(), now.getDate()))
-          : `${year}-01-01`,
-      }
-    : { from: '', to: '' }
-
-  const enabled = Boolean(available && year)
-  const query = useInsights(range, enabled)
-  const data: InsightsResponse | undefined = enabled ? query.data : undefined
-
-  if (!data || !year) return undefined
-  return { year: year - 1, seconds: data.total_seconds, partial: running }
 }
 
 /** One band of the story: a label, one number at full size, and a line of context. */
@@ -208,30 +185,38 @@ function Big({ children, accent = false }: { children: ReactNode; accent?: boole
   )
 }
 
-function Opening({ data, previous }: { data: WrappedResponse; previous?: Comparison }) {
+function Opening({ data, previous }: { data: WrappedResponse; previous?: WrappedResponse }) {
   const hours = Math.round(data.total_seconds / 3600)
 
   let comparison: ReactNode = null
-  if (previous && previous.seconds > 0) {
-    const change = (data.total_seconds - previous.seconds) / previous.seconds
-    const previousHours = Math.round(previous.seconds / 3600)
-    const upTo = previous.partial ? ' up to this date' : ''
+  if (previous && previous.total_seconds > 0) {
+    const previousHours = Math.round(previous.total_seconds / 3600)
 
-    comparison =
-      Math.abs(change) < 0.01 ? (
+    if (!wasFullYear(previous)) {
+      // Comparing a whole year against a part of one produces a huge percentage that
+      // measures when tracking started, not how much was worked.
+      comparison = (
         <>
-          Almost exactly as much as {previous.year}
-          {upTo}, when you coded {previousHours} hours.
-        </>
-      ) : (
-        <>
-          <span className="text-fg">
-            {formatPercent(Math.abs(change))} {change > 0 ? 'more' : 'less'}
-          </span>{' '}
-          than {previous.year}
-          {upTo}, when you coded {previousHours} hours.
+          You tracked {previousHours} hours in {previous.year}, but only {previous.day_count}{' '}
+          days of it — too different to compare.
         </>
       )
+    } else {
+      const change = (data.total_seconds - previous.total_seconds) / previous.total_seconds
+      comparison =
+        Math.abs(change) < 0.01 ? (
+          <>
+            Almost exactly as much as {previous.year}, when you coded {previousHours} hours.
+          </>
+        ) : (
+          <>
+            <span className="text-fg">
+              {formatPercent(Math.abs(change))} {change > 0 ? 'more' : 'less'}
+            </span>{' '}
+            than {previous.year}, when you coded {previousHours} hours.
+          </>
+        )
+    }
   }
 
   return (
@@ -256,11 +241,10 @@ function Opening({ data, previous }: { data: WrappedResponse; previous?: Compari
 function Showing({ data }: { data: WrappedResponse }) {
   const share = data.day_count > 0 ? data.active_days / data.day_count : 0
 
-  // The range starts at the first heartbeat and stops at today, so it is only the whole
-  // year for a year that was tracked end to end. Saying "of the 36 days in 2023" would
-  // be plainly wrong; naming what the count actually covers is not.
-  const daysInYear = new Date(data.year, 1, 29).getMonth() === 1 ? 366 : 365
-  const partial = data.day_count < daysInYear
+  // The range starts at the first heartbeat, so it is only the whole year for a year
+  // that was tracked end to end. Saying "of the 36 days in 2023" would be plainly
+  // wrong; naming what the count actually covers is not.
+  const partial = !wasFullYear(data)
 
   return (
     <Band

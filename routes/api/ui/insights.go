@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"net/http"
 	"sort"
 	"sync"
@@ -333,8 +334,12 @@ type wrappedYearsResponse struct {
 	Years []int `json:"years"`
 }
 
-// GetWrappedYears lists the years that actually hold data, so the picker never offers a
-// year that turns out to be empty.
+// GetWrappedYears lists the years a retrospective can be made of: those that hold data
+// and have finished.
+//
+// The current year is excluded on purpose. A wrapped is a look back at a year, and half
+// of one is not a year - its totals, its averages and any comparison against the year
+// before are all still moving. That view already exists; it is the dashboard.
 func (h *InsightsHandler) GetWrappedYears(w http.ResponseWriter, r *http.Request) {
 	user, ok := requirePrincipal(w, r)
 	if !ok {
@@ -350,7 +355,7 @@ func (h *InsightsHandler) GetWrappedYears(w http.ResponseWriter, r *http.Request
 
 	years := []int{}
 	if !first.IsZero() {
-		for year := first.In(user.TZ()).Year(); year <= time.Now().In(user.TZ()).Year(); year++ {
+		for year := first.In(user.TZ()).Year(); year < time.Now().In(user.TZ()).Year(); year++ {
 			years = append(years, year)
 		}
 	}
@@ -365,8 +370,13 @@ type wrappedResponse struct {
 	*insightsResponse
 }
 
-// GetWrapped is one calendar year of the same figures, bounded to the year rather than
-// to a rolling range.
+// GetWrapped is one finished calendar year of the same figures, bounded to the year
+// rather than to a rolling range.
+//
+// A year that has not ended is refused rather than served half-complete: every figure
+// on that screen - the total, the daily average, the busiest day, the comparison with
+// the year before - would keep changing until December, which is not what a
+// retrospective is for.
 func (h *InsightsHandler) GetWrapped(w http.ResponseWriter, r *http.Request) {
 	user, ok := requirePrincipal(w, r)
 	if !ok {
@@ -382,13 +392,14 @@ func (h *InsightsHandler) GetWrapped(w http.ResponseWriter, r *http.Request) {
 	location := user.TZ()
 	from := time.Date(year, time.January, 1, 0, 0, 0, 0, location)
 	to := from.AddDate(1, 0, 0)
-	// A year still in progress ends now, so its daily average is not divided by days
-	// that have not happened.
+
 	if now := time.Now().In(location); to.After(now) {
-		to = now
-	}
-	if from.After(time.Now()) {
-		respondError(w, r, http.StatusBadRequest, "that year has not started yet")
+		if from.After(now) {
+			respondError(w, r, http.StatusBadRequest, "that year has not started yet")
+			return
+		}
+		respondError(w, r, http.StatusBadRequest,
+			fmt.Sprintf("%d is not over yet - a wrapped covers a finished year. Use the dashboard for the year so far.", year))
 		return
 	}
 
