@@ -67,9 +67,10 @@ export function useProjects(page: number, pageSize: number, query: string) {
   })
 }
 
-export function useInsights(params: Record<string, string>) {
+export function useInsights(params: Record<string, string>, enabled = true) {
   return useQuery({
     queryKey: ['insights', params],
+    enabled,
     queryFn: async ({ signal }) => {
       const data = await request<InsightsResponse>('/insights', { params, signal })
       // Go marshals a nil slice as null, and an empty range has nothing in any of these.
