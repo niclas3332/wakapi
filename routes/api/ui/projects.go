@@ -43,9 +43,9 @@ func (h *ProjectsHandler) RegisterRoutes(router chi.Router) {
 }
 
 type projectItem struct {
-	Project     string    `json:"project"`
-	TopLanguage string    `json:"top_language"`
-	Count       int64     `json:"count"`
+	Project     string `json:"project"`
+	TopLanguage string `json:"top_language"`
+	Count       int64  `json:"count"`
 	// Seconds is the all-time total coded on this project. A heartbeat count means
 	// nothing to a reader, so this is what the list actually shows.
 	Seconds float64   `json:"seconds"`

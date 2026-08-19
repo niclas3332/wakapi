@@ -147,3 +147,72 @@ export type User = {
 export type BootstrapResponse = {
   user: User
 }
+
+/** One alias with every original name mapping onto it. */
+export type AliasGroup = {
+  key: string
+  type: number
+  values: string[]
+}
+
+export type LabelGroup = {
+  label: string
+  projects: string[]
+}
+
+export type LanguageMapping = {
+  id: number
+  extension: string
+  language: string
+}
+
+export type ApiKeyItem = {
+  label: string
+  api_key: string
+  read_only: boolean
+  /** The account's main key: regenerable, not deletable. */
+  primary: boolean
+}
+
+export type WebauthnCredential = {
+  name: string
+  created_at: string
+  last_used_at: string | null
+}
+
+export type SettingsResponse = {
+  user: User
+  aliases: AliasGroup[]
+  labels: LabelGroup[]
+  language_mappings: LanguageMapping[]
+  api_keys: ApiKeyItem[]
+  projects: string[]
+  webauthn_credentials: WebauthnCredential[]
+  readme_card_title: string
+  subscription_price: string
+  support_contact: string
+  wakatime_api_url: string
+}
+
+/** Instance-wide identity. Admin only. */
+export type Branding = {
+  instance_name: string
+  badge_label: string
+  badge_color: string
+  readme_card_title: string
+  logo_url: string
+  footer_text: string
+  footer_url: string
+  activity_title: string
+  activity_logo_url: string
+  activity_color_min_dark: string
+  activity_color_max_dark: string
+  activity_color_min_light: string
+  activity_color_max_light: string
+}
+
+export type BrandingResponse = {
+  effective: Branding
+  overrides: Branding
+  defaults: Branding
+}

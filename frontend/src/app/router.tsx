@@ -5,6 +5,7 @@ import { Layout } from './Layout'
 import { SummaryPage } from '@/pages/Summary'
 import { ProjectsPage } from '@/pages/Projects'
 import { LeaderboardPage } from '@/pages/Leaderboard'
+import { SettingsPage } from '@/pages/Settings'
 
 export const router = createBrowserRouter(
   [
@@ -15,6 +16,7 @@ export const router = createBrowserRouter(
         { path: 'summary', element: <SummaryPage /> },
         { path: 'projects', element: <ProjectsPage /> },
         { path: 'leaderboard', element: <LeaderboardPage /> },
+        { path: 'settings', element: <SettingsPage /> },
       ],
     },
   ],

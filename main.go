@@ -240,6 +240,7 @@ func main() {
 	uiSummaryHandler := uiRoutes.NewSummaryHandler(summaryService, durationService, aliasService, heartbeatService)
 	uiProjectsHandler := uiRoutes.NewProjectsHandler(projectService, heartbeatService, aliasService, summaryService)
 	uiLeaderboardHandler := condition.Ternary[bool, routes.Handler](config.App.LeaderboardEnabled, uiRoutes.NewLeaderboardHandler(leaderboardService), routes.NewNoopHandler())
+	uiSettingsHandler := uiRoutes.NewSettingsHandler(userService, heartbeatService, durationService, summaryService, aliasService, aggregationService, languageMappingService, projectLabelService, keyValueService, mailService, apiKeyService, webAuthnService, brandingService)
 
 	// Compat Handlers
 	wakatimeV1StatusBarHandler := wtV1Routes.NewStatusBarHandler(userService, summaryService)
@@ -367,6 +368,7 @@ func main() {
 	uiSummaryHandler.RegisterRoutes(uiApiRouter)
 	uiProjectsHandler.RegisterRoutes(uiApiRouter)
 	uiLeaderboardHandler.RegisterRoutes(uiApiRouter)
+	uiSettingsHandler.RegisterRoutes(uiApiRouter)
 
 	// Static Routes
 	// https://github.com/golang/go/issues/43431

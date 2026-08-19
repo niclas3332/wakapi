@@ -74,17 +74,22 @@ export function Layout() {
           <div className="mt-6 border-t border-ink-700 pt-4">
             <p className="eyebrow px-3 pb-2">Settings</p>
             <ul className="space-y-0.5">
-              {/*
-                Settings, setup and the api docs are still server-rendered pages, so
-                these are real navigations rather than client-side routes.
-              */}
+              {/* Setup and the api docs are still server-rendered, so those are real navigations. */}
               <li>
-                <a
-                  href={appUrl('/settings')}
-                  className="block rounded px-3 py-2 text-sm text-fg-muted transition-colors hover:bg-ink-800 hover:text-fg"
+                <NavLink
+                  to="/settings"
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    clsx(
+                      'block rounded px-3 py-2 text-sm transition-colors',
+                      isActive
+                        ? 'bg-accent-soft text-fg shadow-[inset_2px_0_0_0_var(--color-accent)]'
+                        : 'text-fg-muted hover:bg-ink-800 hover:text-fg',
+                    )
+                  }
                 >
                   All settings
-                </a>
+                </NavLink>
               </li>
               <li>
                 <a

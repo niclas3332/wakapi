@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"strings"
 	"sync/atomic"
 
 	"github.com/muety/wakapi/config"
@@ -37,9 +38,8 @@ func NewBrandingService(keyValueService IKeyValueService) *BrandingService {
 	return srv
 }
 
-// Defaults returns the branding as configured in the config file, ignoring any
-// database overrides. This is what an admin sees as the "reset to" value.
-func (srv *BrandingService) Defaults() models.Branding {
+// configured reads the config file's branding verbatim.
+func (srv *BrandingService) configured() models.Branding {
 	c := srv.config.Branding
 	return models.Branding{
 		InstanceName:          c.InstanceName,
@@ -58,13 +58,45 @@ func (srv *BrandingService) Defaults() models.Branding {
 	}
 }
 
+// derive fills the name-bearing fields that were left empty from the instance name.
+//
+// This runs after overrides are merged, not before, so renaming the instance in the
+// admin screen renames the badge, the readme card and the chart with it. A fork sets
+// its identity in one place instead of renaming each surface away from an upstream
+// domain it has nothing to do with.
+func derive(b models.Branding) models.Branding {
+	name := strings.TrimSpace(b.InstanceName)
+	if name == "" {
+		name = "Wakapi"
+	}
+	b.InstanceName = name
+
+	if strings.TrimSpace(b.BadgeLabel) == "" {
+		b.BadgeLabel = strings.ToLower(name)
+	}
+	if strings.TrimSpace(b.ReadmeCardTitle) == "" {
+		b.ReadmeCardTitle = name + " Stats"
+	}
+	if strings.TrimSpace(b.ActivityTitle) == "" {
+		b.ActivityTitle = name
+	}
+	return b
+}
+
+// Defaults is what an admin sees as the "reset to" value: the config file's branding
+// with the derived names filled in, but without any stored override.
+func (srv *BrandingService) Defaults() models.Branding {
+	defaults, _ := derive(srv.configured()).Sanitized()
+	return defaults
+}
+
 // Get returns the effective branding. It never fails and never returns nil - a
 // misconfigured instance still has to render.
 func (srv *BrandingService) Get() *models.Branding {
 	if b := srv.resolved.Load(); b != nil {
 		return b
 	}
-	defaults, _ := srv.Defaults().Sanitized()
+	defaults := srv.Defaults()
 	return &defaults
 }
 
@@ -86,7 +118,7 @@ func (srv *BrandingService) GetOverrides() *models.Branding {
 // Set stores the given overrides and applies them immediately. Rejected fields are
 // reported back rather than silently dropped, so the admin learns what did not stick.
 func (srv *BrandingService) Set(overrides *models.Branding) ([]string, error) {
-	_, rejected := srv.Defaults().WithOverrides(overrides).Sanitized()
+	_, rejected := srv.resolve(overrides)
 
 	payload, err := json.Marshal(overrides)
 	if err != nil {
@@ -103,8 +135,14 @@ func (srv *BrandingService) Set(overrides *models.Branding) ([]string, error) {
 	return rejected, nil
 }
 
+// resolve applies the given overrides on top of the configured branding, derives the
+// names that were left blank and validates the result.
+func (srv *BrandingService) resolve(overrides *models.Branding) (models.Branding, []string) {
+	return derive(srv.configured().WithOverrides(overrides)).Sanitized()
+}
+
 func (srv *BrandingService) reload() {
-	effective, rejected := srv.Defaults().WithOverrides(srv.GetOverrides()).Sanitized()
+	effective, rejected := srv.resolve(srv.GetOverrides())
 	if len(rejected) > 0 {
 		config.Log().Warn("ignoring invalid branding overrides, falling back to defaults", "fields", rejected)
 	}
