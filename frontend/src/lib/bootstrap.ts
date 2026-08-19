@@ -2,7 +2,13 @@
 // marker. Contains nothing user-specific — personal data comes from
 // `GET /api/ui/bootstrap` instead.
 export type ServerConfig = {
+  /** Deployment prefix, e.g. "" or "/wakapi". Prefix for every api url. */
   basePath: string
+  /**
+   * Where the client-side router is mounted. Differs from basePath while the app is
+   * staged next to the legacy pages, and becomes equal to it at cutover.
+   */
+  appBase: string
   version: string
   publicUrl: string
   dbType: string
@@ -28,6 +34,7 @@ declare global {
 
 const DEV_FALLBACK: ServerConfig = {
   basePath: '',
+  appBase: '',
   version: 'dev',
   publicUrl: 'http://localhost:3001',
   dbType: 'unknown',

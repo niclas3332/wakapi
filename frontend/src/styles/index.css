@@ -1,7 +1,80 @@
 @import 'tailwindcss';
 
+/*
+ * JetBrains Mono carries every number in this app. It is the typeface of the editor
+ * that produces most of the data being displayed, and its tabular figures keep stat
+ * columns aligned - which is the whole job of a statistics dashboard.
+ * Self-hosted because the CSP has no font-src exception (default-src 'self').
+ */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/JetBrainsMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
-  --font-sans: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;
+  --font-sans:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Surfaces: near-black with a blue cast, the way an IDE looks at night. */
+  --color-ink-950: #0a0e14;
+  --color-ink-900: #0e141d;
+  --color-ink-850: #111823;
+  --color-ink-800: #17202c;
+  --color-ink-700: #202b3a;
+  --color-ink-600: #2c3a4d;
+
+  --color-fg: #e3eaf3;
+  --color-fg-muted: #8093a8;
+  --color-fg-subtle: #5d6d80;
+
+  /* Azure reads as "interactive" in editor chrome without the flatness of a stock blue. */
+  --color-accent: #4d9cff;
+  --color-accent-strong: #2b7fff;
+  --color-accent-soft: #16273f;
+
+  /*
+   * Categorical series, fixed order, never cycled. A ninth series folds into
+   * "Other" rather than inventing a hue. Validated as a set against the card
+   * surface (#111823): lightness band, chroma floor, adjacent-pair CVD
+   * separation, normal-vision floor and 3:1 contrast all pass.
+   */
+  --color-series-1: #3987e5;
+  --color-series-2: #d95926;
+  --color-series-3: #199e70;
+  --color-series-4: #c98500;
+  --color-series-5: #d55181;
+  --color-series-6: #008300;
+  --color-series-7: #9085e9;
+  --color-series-8: #e66767;
+
+  /*
+   * AI and human keep one meaning across every chart, tile and legend: blue is the
+   * machine, green is the person. Drawn from the validated series set rather than
+   * invented, and always paired with a text label - never colour alone.
+   */
+  --color-ai: #3987e5;
+  --color-human: #199e70;
+  --color-danger: #e66767;
+  --color-warn: #c98500;
 }
 
 :root {
@@ -16,6 +89,58 @@ body,
 
 body {
   margin: 0;
-  background-color: var(--color-slate-950, #020617);
-  color: var(--color-slate-100, #f1f5f9);
+  background-color: var(--color-ink-950);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers are data: never let them reflow as their value changes. */
+.tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+}
+
+/* Small uppercase labels above a value. Mono keeps them in the data voice. */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-700);
+  border-radius: 999px;
+  border: 2px solid var(--color-ink-950);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-600);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

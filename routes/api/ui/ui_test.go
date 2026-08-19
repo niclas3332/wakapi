@@ -112,6 +112,41 @@ func TestLeaderboard_MarksOwnEntry(t *testing.T) {
 	assert.Len(t, resp.Items, 2)
 	assert.False(t, resp.Items[0].IsMe)
 	assert.True(t, resp.Items[1].IsMe)
+
+	// Leaderboard totals are real nanosecond durations and must reach the client as
+	// seconds, like every other duration this api emits.
+	assert.Equal(t, 7200.0, resp.Items[0].Seconds)
+	assert.Equal(t, 3600.0, resp.Items[1].Seconds)
+}
+
+// models.SummaryItem.Total is typed time.Duration but holds a count of seconds.
+// Emitting it as-is is correct; treating it as nanoseconds would render every
+// summary figure as zero.
+func TestSummary_ItemTotalsAreSecondsNotNanoseconds(t *testing.T) {
+	// 32339 as stored means 32339 seconds, roughly nine hours.
+	items := models.SummaryItems{{Key: "wakapi", Total: 32339}}
+
+	dto := newSummaryItems(items)
+
+	assert.Len(t, dto, 1)
+	assert.Equal(t, "wakapi", dto[0].Key)
+	assert.Equal(t, 32339.0, dto[0].Seconds)
+}
+
+// A nil collection must reach the client as an empty list, never as null.
+func TestSummary_NilCollectionsBecomeEmptyLists(t *testing.T) {
+	dto := newSummaryDTO(&models.Summary{
+		FromTime: models.CustomTime(time.Unix(0, 0)),
+		ToTime:   models.CustomTime(time.Unix(60, 0)),
+		Projects: models.SummaryItems{{Key: "wakapi", Total: 60}},
+		// branches and entities are only computed when a project filter is active
+	})
+
+	assert.NotNil(t, dto.Branches)
+	assert.Empty(t, dto.Branches)
+	assert.NotNil(t, dto.Entities)
+	assert.Empty(t, dto.Entities)
+	assert.Len(t, dto.Projects, 1)
 }
 
 // Entries without any tracked time are dropped, matching the legacy page.

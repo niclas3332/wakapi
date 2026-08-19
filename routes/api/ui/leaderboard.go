@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/duke-git/lancet/v2/slice"
 	"github.com/go-chi/chi/v5"
@@ -42,12 +41,14 @@ func (h *LeaderboardHandler) RegisterRoutes(router chi.Router) {
 }
 
 type leaderboardItem struct {
-	Rank      uint          `json:"rank"`
-	UserID    string        `json:"user_id"`
-	Total     time.Duration `json:"total"`
-	Key       *string       `json:"key"`
-	IsMe      bool          `json:"is_me"`
-	Languages []string      `json:"languages,omitempty"`
+	Rank   uint   `json:"rank"`
+	UserID string `json:"user_id"`
+	// Seconds, like every other duration this api emits. Leaderboard totals are
+	// real nanosecond durations, unlike summary item totals.
+	Seconds   float64  `json:"seconds"`
+	Key       *string  `json:"key"`
+	IsMe      bool     `json:"is_me"`
+	Languages []string `json:"languages,omitempty"`
 }
 
 type leaderboardResponse struct {
@@ -127,7 +128,7 @@ func (h *LeaderboardHandler) Get(w http.ResponseWriter, r *http.Request) {
 		items = append(items, &leaderboardItem{
 			Rank:      item.Rank,
 			UserID:    item.UserID,
-			Total:     item.Total,
+			Seconds:   secondsFromDuration(item.Total),
 			Key:       item.Key,
 			IsMe:      user != nil && item.UserID == user.ID,
 			Languages: userLanguages[item.UserID],

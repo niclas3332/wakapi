@@ -7,6 +7,7 @@ package ui
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/muety/wakapi/helpers"
 	"github.com/muety/wakapi/middlewares"
@@ -49,6 +50,23 @@ func requirePrincipal(w http.ResponseWriter, r *http.Request) (*models.User, boo
 		return nil, false
 	}
 	return user, true
+}
+
+// Every duration this api emits is a plain number of seconds.
+//
+// The models are not consistent about this and it is a genuine trap:
+// models.SummaryItem.Total is typed time.Duration but actually holds a count of
+// seconds (hence models.SummaryItem.TotalFixed, which multiplies by time.Second),
+// while models.Duration.Duration and leaderboard totals are real nanosecond
+// durations. Converting at the edge means a client never has to know which is which.
+func secondsFromDuration(d time.Duration) float64 {
+	return d.Seconds()
+}
+
+// secondsFromSummaryItem reads a summary item's total, which is already a second
+// count despite its type.
+func secondsFromSummaryItem(total time.Duration) float64 {
+	return float64(total)
 }
 
 type errorResponse struct {

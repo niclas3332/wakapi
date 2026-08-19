@@ -51,8 +51,53 @@ type availableFilters struct {
 	Categories []string `json:"categories"`
 }
 
+type summaryItemDTO struct {
+	Key     string  `json:"key"`
+	Seconds float64 `json:"seconds"`
+}
+
+// summaryDTO mirrors models.Summary but emits seconds and never a null collection,
+// so the client needs neither unit conversion nor null checks.
+type summaryDTO struct {
+	From             time.Time        `json:"from"`
+	To               time.Time        `json:"to"`
+	Projects         []summaryItemDTO `json:"projects"`
+	Languages        []summaryItemDTO `json:"languages"`
+	Editors          []summaryItemDTO `json:"editors"`
+	OperatingSystems []summaryItemDTO `json:"operating_systems"`
+	Machines         []summaryItemDTO `json:"machines"`
+	Labels           []summaryItemDTO `json:"labels"`
+	Branches         []summaryItemDTO `json:"branches"`
+	Entities         []summaryItemDTO `json:"entities"`
+	Categories       []summaryItemDTO `json:"categories"`
+}
+
+func newSummaryItems(items models.SummaryItems) []summaryItemDTO {
+	out := make([]summaryItemDTO, 0, len(items))
+	for _, item := range items {
+		out = append(out, summaryItemDTO{Key: item.Key, Seconds: secondsFromSummaryItem(item.Total)})
+	}
+	return out
+}
+
+func newSummaryDTO(summary *models.Summary) *summaryDTO {
+	return &summaryDTO{
+		From:             summary.FromTime.T(),
+		To:               summary.ToTime.T(),
+		Projects:         newSummaryItems(summary.Projects),
+		Languages:        newSummaryItems(summary.Languages),
+		Editors:          newSummaryItems(summary.Editors),
+		OperatingSystems: newSummaryItems(summary.OperatingSystems),
+		Machines:         newSummaryItems(summary.Machines),
+		Labels:           newSummaryItems(summary.Labels),
+		Branches:         newSummaryItems(summary.Branches),
+		Entities:         newSummaryItems(summary.Entities),
+		Categories:       newSummaryItems(summary.Categories),
+	}
+}
+
 type summaryResponse struct {
-	Summary *models.Summary `json:"summary"`
+	Summary *summaryDTO `json:"summary"`
 	// AvailableFilters comes from an unfiltered summary of the same range, so the
 	// dropdowns keep offering every option even while a filter is active.
 	AvailableFilters    availableFilters  `json:"available_filters"`
@@ -100,7 +145,7 @@ func (h *SummaryHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	helpers.RespondJSON(w, r, http.StatusOK, &summaryResponse{
-		Summary: summary,
+		Summary: newSummaryDTO(summary),
 		AvailableFilters: availableFilters{
 			Projects:   filters.ProjectNames,
 			Languages:  filters.LanguageNames,
@@ -116,13 +161,38 @@ func (h *SummaryHandler) Get(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type timelineProjectDTO struct {
+	Name    string  `json:"name"`
+	Seconds float64 `json:"seconds"`
+}
+
+type timelineDayDTO struct {
+	Date     time.Time            `json:"date"`
+	Projects []timelineProjectDTO `json:"projects"`
+}
+
 type timelineResponse struct {
-	Items []*view.TimelineViewModel `json:"items"`
+	Items []timelineDayDTO `json:"items"`
 	// Available reports whether the range qualifies for a per-day timeline at all.
 	// False is a normal answer, not an error.
 	Available    bool `json:"available"`
 	MinRangeDays int  `json:"min_range_days"`
 	MaxRangeDays int  `json:"max_range_days"`
+}
+
+func newTimelineDays(summaries []*models.Summary) []timelineDayDTO {
+	days := make([]timelineDayDTO, 0, len(summaries))
+	for _, summary := range summaries {
+		projects := make([]timelineProjectDTO, 0, len(summary.Projects))
+		for _, project := range summary.Projects {
+			projects = append(projects, timelineProjectDTO{
+				Name:    project.Key,
+				Seconds: secondsFromSummaryItem(project.Total),
+			})
+		}
+		days = append(days, timelineDayDTO{Date: summary.FromTime.T(), Projects: projects})
+	}
+	return days
 }
 
 // GetTimeline returns one entry per day for the requested range, which only makes
@@ -139,7 +209,7 @@ func (h *SummaryHandler) GetTimeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := &timelineResponse{
-		Items:        []*view.TimelineViewModel{},
+		Items:        []timelineDayDTO{},
 		MinRangeDays: su.DailyStatsMinRangeDays,
 		MaxRangeDays: su.DailyStatsMaxRangeDays,
 	}
@@ -158,17 +228,44 @@ func (h *SummaryHandler) GetTimeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Available = true
-	response.Items = view.NewTimelineViewModel(summaries)
+	response.Items = newTimelineDays(summaries)
 	helpers.RespondJSON(w, r, http.StatusOK, response)
 }
 
+type hourlySegmentDTO struct {
+	FromTime time.Time `json:"from_time"`
+	Seconds  float64   `json:"seconds"`
+	Entity   string    `json:"entity"`
+}
+
+type hourlyProjectDTO struct {
+	Project string             `json:"project"`
+	Items   []hourlySegmentDTO `json:"items"`
+}
+
 type hourlyResponse struct {
-	From  time.Time                      `json:"from"`
-	Items view.HourlyBreakdownsViewModel `json:"items"`
+	From  time.Time          `json:"from"`
+	Items []hourlyProjectDTO `json:"items"`
 	// Truncated means the range held too many segments to plot. The chart is hidden
 	// in that case; it is a display limit, not a failure.
 	Truncated    bool `json:"truncated"`
 	MaxDurations int  `json:"max_durations"`
+}
+
+func newHourlyProjects(breakdown view.HourlyBreakdownsViewModel) []hourlyProjectDTO {
+	projects := make([]hourlyProjectDTO, 0, len(breakdown))
+	for _, project := range breakdown {
+		segments := make([]hourlySegmentDTO, 0, len(project.Items))
+		for _, item := range project.Items {
+			segments = append(segments, hourlySegmentDTO{
+				FromTime: item.FromTime,
+				Seconds:  secondsFromDuration(item.Duration),
+				Entity:   item.Entity,
+			})
+		}
+		projects = append(projects, hourlyProjectDTO{Project: project.Project, Items: segments})
+	}
+	return projects
 }
 
 // GetHourly returns the per-project hourly breakdown, covering at most the last 24
@@ -193,7 +290,7 @@ func (h *SummaryHandler) GetHourly(w http.ResponseWriter, r *http.Request) {
 
 	helpers.RespondJSON(w, r, http.StatusOK, &hourlyResponse{
 		From:         breakdown.From,
-		Items:        breakdown.Items,
+		Items:        newHourlyProjects(breakdown.Items),
 		Truncated:    breakdown.Truncated,
 		MaxDurations: su.HourlyBreakdownMaxDurations,
 	})
