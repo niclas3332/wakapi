@@ -25,19 +25,21 @@ type AggregationService struct {
 	summaryService        ISummaryService
 	heartbeatService      IHeartbeatService
 	durationService       IDurationService
+	aiStatsService        IAIStatsService
 	inProgress            datastructure.Set[string]
 	queueDefault          *artifex.Dispatcher
 	queueSummaryWorkers   *artifex.Dispatcher
 	queuedDurationWorkers *artifex.Dispatcher
 }
 
-func NewAggregationService(userService IUserService, summaryService ISummaryService, heartbeatService IHeartbeatService, durationService IDurationService) *AggregationService {
+func NewAggregationService(userService IUserService, summaryService ISummaryService, heartbeatService IHeartbeatService, durationService IDurationService, aiStatsService IAIStatsService) *AggregationService {
 	return &AggregationService{
 		config:                config.Get(),
 		userService:           userService,
 		summaryService:        summaryService,
 		heartbeatService:      heartbeatService,
 		durationService:       durationService,
+		aiStatsService:        aiStatsService,
 		inProgress:            datastructure.New[string](),
 		queueDefault:          config.GetDefaultQueue(),
 		queueSummaryWorkers:   config.GetQueue(config.QueueProcessing),
@@ -149,6 +151,19 @@ func (srv *AggregationService) AggregateSummaries(userIds datastructure.Set[stri
 				srv.process(job)
 			}); err != nil {
 				config.Log().Error("failed to dispatch summary generation job", "userID", job.User.ID)
+			}
+		}
+
+		// AI statistics ride along on the same schedule, but on their own job: they read
+		// heartbeats directly rather than summaries, so a failure here must not take the
+		// summary aggregation with it.
+		if srv.aiStatsService != nil {
+			if err := srv.queueSummaryWorkers.Dispatch(func() {
+				if err := srv.aiStatsService.AggregateSince(&u); err != nil {
+					config.Log().Error("failed to aggregate ai stats", "userID", u.ID, "error", err)
+				}
+			}); err != nil {
+				config.Log().Error("failed to dispatch ai stats aggregation job", "userID", u.ID)
 			}
 		}
 	}

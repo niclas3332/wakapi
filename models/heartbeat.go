@@ -44,8 +44,16 @@ type Heartbeat struct {
 	AISession        string     `json:"ai_session,omitempty" hash:"ignore"`
 	AIInputTokens    int        `json:"ai_input_tokens,omitempty" hash:"ignore"`
 	AIOutputTokens   int        `json:"ai_output_tokens,omitempty" hash:"ignore"`
-	AIPromptLength   int        `json:"ai_prompt_length,omitempty" hash:"ignore"`
-	HumanLineChanges int        `json:"human_line_changes,omitempty" hash:"ignore"`
+	// AIPromptLength maps to the misspelled column gorm generated for it. Pinned rather
+	// than renamed: the table holds real data and the name is only ugly, not wrong.
+	AIPromptLength int `json:"ai_prompt_length,omitempty" hash:"ignore" gorm:"column:a_iprompt_length"`
+	// AICachedInputTokens counts prompt tokens served from the model's cache. The cli
+	// sends it and wakapi used to drop it on the floor, which is why token totals and
+	// costs came out an order of magnitude short - cache reads are the bulk of them.
+	AICachedInputTokens int `json:"ai_cached_input_tokens,omitempty" hash:"ignore"`
+	// AISubscriptionPlan is what the cli reports about the account behind the model.
+	AISubscriptionPlan string `json:"ai_subscription_plan,omitempty" hash:"ignore" gorm:"size:64"`
+	HumanLineChanges   int    `json:"human_line_changes,omitempty" hash:"ignore"`
 }
 
 func (h *Heartbeat) Valid() bool {

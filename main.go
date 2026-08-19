@@ -70,6 +70,7 @@ var (
 	durationRepository        *repositories.DurationRepository
 	apiKeyRepository          repositories.IApiKeyRepository
 	webAuthnRepository        repositories.IWebAuthnRepository
+	aiStatsRepository         *repositories.AIStatsRepository
 )
 
 var (
@@ -93,6 +94,7 @@ var (
 	miscService            services.IMiscService
 	apiKeyService          services.IApiKeyService
 	webAuthnService        services.IWebAuthnService
+	aiStatsService         services.IAIStatsService
 )
 
 // TODO: Refactor entire project to be structured after business domains
@@ -184,6 +186,7 @@ func main() {
 	durationRepository = repositories.NewDurationRepository(db)
 	apiKeyRepository = repositories.NewApiKeyRepository(db)
 	webAuthnRepository = repositories.NewWebAuthnRepository(db)
+	aiStatsRepository = repositories.NewAIStatsRepository(db)
 
 	// Services
 	mailService = mail.NewMailService()
@@ -198,7 +201,8 @@ func main() {
 	projectService = services.NewProjectService(aliasService, heartbeatRepository, heartbeatService)
 	durationService = services.NewDurationService(durationRepository, heartbeatService, userService, languageMappingService)
 	summaryService = services.NewSummaryService(summaryRepository, heartbeatService, durationService, aliasService, projectLabelService)
-	aggregationService = services.NewAggregationService(userService, summaryService, heartbeatService, durationService)
+	aiStatsService = services.NewAIStatsService(aiStatsRepository, heartbeatService, keyValueService)
+	aggregationService = services.NewAggregationService(userService, summaryService, heartbeatService, durationService, aiStatsService)
 	reportService = services.NewReportService(summaryService, userService, mailService)
 	activityService = services.NewActivityService(summaryService, brandingService)
 	diagnosticsService = services.NewDiagnosticsService(diagnosticsRepository)
@@ -240,6 +244,7 @@ func main() {
 	uiSummaryHandler := uiRoutes.NewSummaryHandler(summaryService, durationService, aliasService, heartbeatService)
 	uiProjectsHandler := uiRoutes.NewProjectsHandler(projectService, heartbeatService, aliasService, summaryService)
 	uiLeaderboardHandler := condition.Ternary[bool, routes.Handler](config.App.LeaderboardEnabled, uiRoutes.NewLeaderboardHandler(leaderboardService), routes.NewNoopHandler())
+	uiAIHandler := uiRoutes.NewAIHandler(aiStatsService, summaryService, heartbeatService)
 	uiSettingsHandler := uiRoutes.NewSettingsHandler(userService, heartbeatService, durationService, summaryService, aliasService, aggregationService, languageMappingService, projectLabelService, keyValueService, mailService, apiKeyService, webAuthnService, brandingService)
 
 	// Compat Handlers
@@ -369,6 +374,7 @@ func main() {
 	uiProjectsHandler.RegisterRoutes(uiApiRouter)
 	uiLeaderboardHandler.RegisterRoutes(uiApiRouter)
 	uiSettingsHandler.RegisterRoutes(uiApiRouter)
+	uiAIHandler.RegisterRoutes(uiApiRouter)
 
 	// Static Routes
 	// https://github.com/golang/go/issues/43431

@@ -137,6 +137,18 @@ type IActivityService interface {
 	GetChart(*models.User, ChartOptions) (string, error)
 }
 
+type IAIStatsService interface {
+	Prices() models.AIPriceTable
+	SetPrices(models.AIPriceTable) error
+	HasStoredPrices() bool
+	AggregateDay(*models.User, time.Time) error
+	AggregateRange(*models.User, time.Time, time.Time) error
+	AggregateSince(*models.User) error
+	Retrieve(*models.User, time.Time, time.Time) ([]*models.AIStatsDaily, []*models.AISessionDaily, error)
+	EarliestCachedTokenDay(*models.User) (time.Time, error)
+	DeleteByUser(string) error
+}
+
 type IReportService interface {
 	Schedule()
 	SendReport(*models.User, time.Duration) error
