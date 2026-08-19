@@ -1,20 +1,28 @@
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 
-import { useHourly, useSummary, useTimeline } from '@/api/queries'
+import { useBootstrap, useHourly, useSummary, useTimeline } from '@/api/queries'
 import type { Summary, SummaryItem } from '@/api/types'
 import { appUrl } from '@/api/client'
 import { AI_COLOR, HUMAN_COLOR } from '@/lib/colors'
-import { formatDuration, formatDurationCompact, formatPercent, isZeroTime } from '@/lib/format'
+import {
+  formatCount,
+  formatDuration,
+  formatDurationCompact,
+  formatPercent,
+  isZeroTime,
+} from '@/lib/format'
 import { toApiParams } from '@/lib/interval'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, LoadingRows, Skeleton } from '@/components/ui/State'
 import { FilterBar } from '@/components/ui/FilterBar'
 import { RangePicker } from '@/components/ui/RangePicker'
 import { StatTile } from '@/components/ui/StatTile'
+import { ProjectHeader } from '@/components/ui/ProjectHeader'
 import { RankedBars } from '@/components/charts/RankedBars'
 import { DayStrip } from '@/components/charts/DayStrip'
 import { DailyBars } from '@/components/charts/DailyBars'
+import { ActivityChart } from '@/components/charts/ActivityChart'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
@@ -25,6 +33,9 @@ export function SummaryPage() {
   const summaryQuery = useSummary(params)
   const timelineQuery = useTimeline(params)
   const hourlyQuery = useHourly(params)
+  const { data: bootstrap } = useBootstrap()
+
+  const projectFilter = search.get('project') ?? ''
 
   const summary = summaryQuery.data?.summary
   const stats = useMemo(() => (summary ? deriveStats(summary) : null), [summary])
@@ -62,14 +73,18 @@ export function SummaryPage() {
 
       <FilterBar filters={summaryQuery.data?.available_filters} />
 
+      {projectFilter && summary && stats && bootstrap && (
+        <ProjectHeader project={projectFilter} userId={bootstrap.user.id} seconds={stats.total} />
+      )}
+
       {summaryQuery.isPending || !stats || !summary ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {Array.from({ length: 6 }, (_, i) => (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          {Array.from({ length: 7 }, (_, i) => (
             <Skeleton key={i} className="h-[4.75rem]" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           <StatTile
             label="Total time"
             value={formatDurationCompact(stats.total)}
@@ -80,6 +95,11 @@ export function SummaryPage() {
             label="Daily average"
             value={formatDurationCompact(stats.dailyAverage)}
             note={`over ${stats.days} ${stats.days === 1 ? 'day' : 'days'}`}
+          />
+          <StatTile
+            label="Heartbeats"
+            value={formatCount(summary.num_heartbeats)}
+            note="pings received"
           />
           <StatTile label="Top project" value={stats.topProject ?? '—'} note={stats.topProjectTime} small />
           <StatTile label="Top language" value={stats.topLanguage ?? '—'} note={stats.topLanguageTime} small />
@@ -133,13 +153,41 @@ export function SummaryPage() {
         </Card>
       )}
 
+      {/* Only worth saying when a retention policy is actually in force. */}
+      {summaryQuery.data && summaryQuery.data.data_retention_months > 0 && (
+        <p className="rounded-lg border border-ink-700 bg-ink-850 px-4 py-3 text-xs text-fg-muted">
+          Coding activity older than {summaryQuery.data.data_retention_months} months is deleted on
+          this instance.{' '}
+          <a href={appUrl('/settings#subscription')} className="text-accent hover:text-fg">
+            Subscription settings
+          </a>
+        </p>
+      )}
+
       {!noData && (
         <>
-          {timelineQuery.data?.available && timelineQuery.data.items.length > 0 && (
-            <Card title="Daily activity" meta="by project">
-              <DailyBars items={timelineQuery.data.items} />
+          {/*
+            The activity grid always covers the past twelve months, independent of
+            the range picker, so it sits at the top as the constant frame of
+            reference rather than pretending to follow the selected range.
+          */}
+          {bootstrap && (
+            <Card title="Activity" meta="past 12 months">
+              <ActivityChart userId={bootstrap.user.id} />
             </Card>
           )}
+
+          <Card title="Timeline" meta="by project, per day">
+            {timelineQuery.isPending ? (
+              <LoadingRows rows={4} />
+            ) : timelineQuery.data?.available && timelineQuery.data.items.length > 0 ? (
+              <DailyBars items={timelineQuery.data.items} />
+            ) : (
+              <EmptyState
+                message={`A per-day timeline needs a range between ${timelineQuery.data?.min_range_days ?? 3} and ${timelineQuery.data?.max_range_days ?? 31} days. Pick one to see it.`}
+              />
+            )}
+          </Card>
 
           {/*
             The hourly breakdown always covers at most the last 24 hours, so for a

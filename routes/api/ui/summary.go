@@ -59,8 +59,10 @@ type summaryItemDTO struct {
 // summaryDTO mirrors models.Summary but emits seconds and never a null collection,
 // so the client needs neither unit conversion nor null checks.
 type summaryDTO struct {
-	From             time.Time        `json:"from"`
-	To               time.Time        `json:"to"`
+	From          time.Time `json:"from"`
+	To            time.Time `json:"to"`
+	NumHeartbeats int       `json:"num_heartbeats"`
+
 	Projects         []summaryItemDTO `json:"projects"`
 	Languages        []summaryItemDTO `json:"languages"`
 	Editors          []summaryItemDTO `json:"editors"`
@@ -84,6 +86,7 @@ func newSummaryDTO(summary *models.Summary) *summaryDTO {
 	return &summaryDTO{
 		From:             summary.FromTime.T(),
 		To:               summary.ToTime.T(),
+		NumHeartbeats:    summary.NumHeartbeats,
 		Projects:         newSummaryItems(summary.Projects),
 		Languages:        newSummaryItems(summary.Languages),
 		Editors:          newSummaryItems(summary.Editors),

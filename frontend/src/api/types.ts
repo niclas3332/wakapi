@@ -12,6 +12,7 @@ export type SummaryItem = {
 export type Summary = {
   from: string
   to: string
+  num_heartbeats: number
   projects: SummaryItem[]
   languages: SummaryItem[]
   editors: SummaryItem[]
