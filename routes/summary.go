@@ -3,9 +3,7 @@ package routes
 import (
 	"fmt"
 	"net/http"
-	"time"
 
-	"github.com/duke-git/lancet/v2/slice"
 	"github.com/go-chi/chi/v5"
 	conf "github.com/muety/wakapi/config"
 	"github.com/muety/wakapi/helpers"
@@ -14,12 +12,6 @@ import (
 	"github.com/muety/wakapi/models/view"
 	su "github.com/muety/wakapi/routes/utils"
 	"github.com/muety/wakapi/services"
-	"github.com/muety/wakapi/utils"
-)
-
-const (
-	dailyStatsMinRangeDays = 3
-	dailyStatsMaxRangeDays = 31
 )
 
 type SummaryHandler struct {
@@ -113,8 +105,8 @@ func (h *SummaryHandler) GetIndex(w http.ResponseWriter, r *http.Request) {
 
 	// timeline data (daily stats)
 	var timeline []*view.TimelineViewModel
-	if rangeDays := summaryParams.RangeDays(); rangeDays >= dailyStatsMinRangeDays && rangeDays <= dailyStatsMaxRangeDays {
-		dailyStatsSummaries, err := h.fetchSplitSummaries(summaryParams)
+	if rangeDays := summaryParams.RangeDays(); rangeDays >= su.DailyStatsMinRangeDays && rangeDays <= su.DailyStatsMaxRangeDays {
+		dailyStatsSummaries, err := su.FetchSplitSummaries(h.summarySrvc, summaryParams)
 		if err != nil {
 			conf.Log().Request(r).Error("failed to load timeline stats", "error", err)
 		} else {
@@ -123,23 +115,12 @@ func (h *SummaryHandler) GetIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// hourly breakdown data
-	var hourlyBreakdown view.HourlyBreakdownsViewModel
-	hourlyBreakdownFrom := summaryParams.From
-	if summaryParams.RangeDays() > 1 { // get at most 24 hours of hourly breakdown
-		hourlyBreakdownFrom = summaryParams.To.Add(-24 * time.Hour)
-	}
-	if durations, err := h.durationSrvc.Get(hourlyBreakdownFrom, summaryParams.To, summaryParams.User, summaryParams.Filters, nil, false); err == nil {
-		// for excessively many small segments, plotting is too performance-heavy and will freeze the browser (see https://github.com/muety/wakapi/issues/871)
-		// and the chart would be unreadable anyway, so we simply disable it
-		if len(durations) <= 200 {
-			hourlyBreakdown = view.NewHourlyBreakdownViewModel(view.NewHourlyBreakdownItems(durations, func(t uint8, k string) string {
-				s, _ := h.aliasSrvc.GetAliasOrDefault(user.ID, t, k)
-				return s
-			}))
-		}
-	} else {
+	breakdown, err := su.BuildHourlyBreakdown(h.durationSrvc, h.aliasSrvc, summaryParams)
+	if err != nil {
 		conf.Log().Request(r).Error("failed to load hourly breakdown stats", "error", err)
 	}
+	hourlyBreakdown := breakdown.Items
+	hourlyBreakdownFrom := breakdown.From
 
 	vm := view.SummaryViewModel{
 		SharedLoggedInViewModel: view.SharedLoggedInViewModel{
@@ -173,26 +154,7 @@ func (h *SummaryHandler) buildViewModel(r *http.Request, w http.ResponseWriter) 
 	}, r, w)
 }
 
-func (h *SummaryHandler) fetchSplitSummaries(params *models.SummaryParams) ([]*models.Summary, error) {
-	summaries := make([]*models.Summary, 0)
-	intervals := utils.SplitRangeByDays(params.From, params.To)
-	for _, interval := range intervals {
-		curSummary, err := h.summarySrvc.Aliased(interval[0], interval[1], params.User, h.summarySrvc.Retrieve, params.Filters, nil, false)
-		if err != nil {
-			return nil, err
-		}
-		summaries = append(summaries, curSummary)
-	}
-	return summaries, nil
-}
-
 // extractAvailableFilters extracts available filter names from a summary's various item collections.
 func (h *SummaryHandler) extractAvailableFilters(summary *models.Summary) view.AvailableFilters {
-	return view.AvailableFilters{
-		ProjectNames:  slice.Map(summary.Projects, func(_ int, item *models.SummaryItem) string { return item.Key }),
-		LanguageNames: slice.Map(summary.Languages, func(_ int, item *models.SummaryItem) string { return item.Key }),
-		MachineNames:  slice.Map(summary.Machines, func(_ int, item *models.SummaryItem) string { return item.Key }),
-		LabelNames:    slice.Map(summary.Labels, func(_ int, item *models.SummaryItem) string { return item.Key }),
-		CategoryNames: slice.Map(summary.Categories, func(_ int, item *models.SummaryItem) string { return item.Key }),
-	}
+	return su.ExtractAvailableFilters(summary)
 }

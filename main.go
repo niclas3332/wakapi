@@ -32,6 +32,7 @@ import (
 	"github.com/muety/wakapi/repositories"
 	"github.com/muety/wakapi/routes"
 	"github.com/muety/wakapi/routes/api"
+	uiRoutes "github.com/muety/wakapi/routes/api/ui"
 	shieldsV1Routes "github.com/muety/wakapi/routes/compat/shields/v1"
 	wtV1Routes "github.com/muety/wakapi/routes/compat/wakatime/v1"
 	"github.com/muety/wakapi/services"
@@ -232,6 +233,12 @@ func main() {
 	badgeHandler := api.NewBadgeHandler(userService, summaryService)
 	captchaHandler := api.NewCaptchaHandler()
 
+	// UI API Handlers (internal, consumed by the react frontend)
+	uiBootstrapHandler := uiRoutes.NewBootstrapHandler()
+	uiSummaryHandler := uiRoutes.NewSummaryHandler(summaryService, durationService, aliasService, heartbeatService)
+	uiProjectsHandler := uiRoutes.NewProjectsHandler(projectService, heartbeatService, aliasService)
+	uiLeaderboardHandler := condition.Ternary[bool, routes.Handler](config.App.LeaderboardEnabled, uiRoutes.NewLeaderboardHandler(leaderboardService), routes.NewNoopHandler())
+
 	// Compat Handlers
 	wakatimeV1StatusBarHandler := wtV1Routes.NewStatusBarHandler(userService, summaryService)
 	wakatimeV1AllHandler := wtV1Routes.NewAllTimeHandler(userService, summaryService)
@@ -299,9 +306,24 @@ func main() {
 
 	apiRouter := chi.NewRouter()
 
+	// The UI API is cookie-authenticated and therefore needs csrf protection, which
+	// the plugin-facing api routes must not get - wakatime-cli knows nothing about it.
+	// Scoping the middleware to this sub router is what keeps them apart.
+	uiApiRouter := chi.NewRouter()
+	uiAuthMiddleware := middlewares.NewAuthenticateMiddleware(userService)
+	if config.App.LeaderboardEnabled && !config.App.LeaderboardRequireAuth {
+		uiAuthMiddleware = uiAuthMiddleware.WithOptionalFor("/api/ui/leaderboard")
+	}
+	uiApiRouter.Use(
+		uiAuthMiddleware.Handler,
+		middlewares.NewCsrfMiddleware().Handler,
+		middleware.Compress(5, "application/json"),
+	)
+
 	// Hook sub routers
 	router.Mount("/", rootRouter)
 	router.Mount("/api", apiRouter)
+	apiRouter.Mount("/ui", uiApiRouter)
 
 	// Route registrations
 	appHandler.RegisterRoutes(rootRouter)
@@ -337,6 +359,12 @@ func main() {
 	wakatimeV1UserAgentsHandler.RegisterRoutes(apiRouter)
 	shieldV1BadgeHandler.RegisterRoutes(apiRouter)
 	captchaHandler.RegisterRoutes(apiRouter)
+
+	// UI API route registrations
+	uiBootstrapHandler.RegisterRoutes(uiApiRouter)
+	uiSummaryHandler.RegisterRoutes(uiApiRouter)
+	uiProjectsHandler.RegisterRoutes(uiApiRouter)
+	uiLeaderboardHandler.RegisterRoutes(uiApiRouter)
 
 	// Static Routes
 	// https://github.com/golang/go/issues/43431
