@@ -75,6 +75,28 @@ export function formatWeekday(value: string | Date): string {
   return date.toLocaleDateString(undefined, { weekday: 'short' })
 }
 
+const tokenFormat = new Intl.NumberFormat(undefined, {
+  notation: 'compact',
+  maximumFractionDigits: 2,
+})
+
+/** Token counts run to billions, so they are always shown compact. */
+export function formatTokens(value: number): string {
+  return tokenFormat.format(value)
+}
+
+/**
+ * Costs are shown with cents up to $100 and whole units above it: the cents on a
+ * four-figure number are noise, and dropping them keeps the column readable.
+ */
+export function formatCost(value: number): string {
+  const digits = Math.abs(value) >= 100 ? 0 : 2
+  return `$${value.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`
+}
+
 /** Go's zero time, which the api uses to mean "no data yet". */
 export function isZeroTime(value: string | undefined | null): boolean {
   if (!value) return true

@@ -3,13 +3,17 @@ import { useQuery } from '@tanstack/react-query'
 import { request } from './client'
 import { normalizeSummaryResponse } from './normalize'
 import type {
+  AIFilesResponse,
+  AIOverviewResponse,
   BootstrapResponse,
   HourlyResponse,
+  InsightsResponse,
   LeaderboardResponse,
   Paged,
   ProjectItem,
   SummaryResponse,
   TimelineResponse,
+  WrappedResponse,
 } from './types'
 
 /** The signed-in user changes rarely; settings mutations invalidate this key. */
@@ -60,6 +64,77 @@ export function useProjects(page: number, pageSize: number, query: string) {
         signal,
       }),
     placeholderData: (previous) => previous,
+  })
+}
+
+export function useInsights(params: Record<string, string>) {
+  return useQuery({
+    queryKey: ['insights', params],
+    queryFn: async ({ signal }) => {
+      const data = await request<InsightsResponse>('/insights', { params, signal })
+      // Go marshals a nil slice as null, and an empty range has nothing in any of these.
+      return {
+        ...data,
+        daily: data.daily ?? [],
+        weekdays: data.weekdays ?? [],
+        projects: data.projects ?? [],
+        languages: data.languages ?? [],
+        editors: data.editors ?? [],
+        operating_systems: data.operating_systems ?? [],
+        machines: data.machines ?? [],
+        categories: data.categories ?? [],
+      }
+    },
+  })
+}
+
+export function useWrappedYears() {
+  return useQuery({
+    queryKey: ['wrapped-years'],
+    queryFn: async () => {
+      const data = await request<{ years: number[] }>('/wrapped/years')
+      return data.years ?? []
+    },
+    staleTime: 60 * 60 * 1000,
+  })
+}
+
+export function useWrapped(year: number | undefined) {
+  return useQuery({
+    queryKey: ['wrapped', year],
+    queryFn: async ({ signal }) => {
+      const data = await request<WrappedResponse>(`/wrapped/${year}`, { signal })
+      return { ...data, daily: data.daily ?? [], weekdays: data.weekdays ?? [] }
+    },
+    enabled: year !== undefined,
+  })
+}
+
+export function useAIOverview(params: Record<string, string>) {
+  return useQuery({
+    queryKey: ['ai-overview', params],
+    queryFn: async ({ signal }) => {
+      const data = await request<AIOverviewResponse>('/ai/overview', { params, signal })
+      return {
+        ...data,
+        by_model: data.by_model ?? [],
+        by_day: data.by_day ?? [],
+        by_project: data.by_project ?? [],
+      }
+    },
+  })
+}
+
+export function useAIFiles(params: Record<string, string>, kind: 'ai' | 'human') {
+  return useQuery({
+    queryKey: ['ai-files', params, kind],
+    queryFn: async ({ signal }) => {
+      const data = await request<AIFilesResponse>('/ai/files', {
+        params: { ...params, kind },
+        signal,
+      })
+      return { ...data, items: data.items ?? [] }
+    },
   })
 }
 

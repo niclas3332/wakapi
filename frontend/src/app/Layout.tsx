@@ -22,6 +22,9 @@ export function Layout() {
   const nav: NavItem[] = [
     { to: '/summary', label: 'Dashboard' },
     { to: '/projects', label: 'Projects' },
+    { to: '/insights', label: 'Insights' },
+    { to: '/ai', label: 'AI' },
+    { to: '/wrapped', label: 'Wrapped' },
     { to: '/leaderboard', label: 'Leaderboard', enabled: serverConfig.features.leaderboardEnabled },
   ].filter((item) => item.enabled !== false)
 

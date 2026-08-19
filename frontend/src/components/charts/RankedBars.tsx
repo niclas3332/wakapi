@@ -19,6 +19,11 @@ type RankedBarsProps = {
    * Used for file entities, whose keys are absolute paths.
    */
   formatLabel?: (key: string) => string
+  /**
+   * Render the magnitude. Defaults to a duration, because that is what most of these
+   * lists carry; the AI screens rank line counts through the same component.
+   */
+  formatValue?: (value: number) => string
 }
 
 /**
@@ -35,6 +40,7 @@ export function RankedBars({
   onSelect,
   emptyMessage = 'Nothing tracked in this range.',
   formatLabel,
+  formatValue = formatDuration,
 }: RankedBarsProps) {
   const [expanded, setExpanded] = useState(false)
 
@@ -78,7 +84,7 @@ export function RankedBars({
                   {label}
                 </span>
                 <span className="tabular shrink-0 text-xs text-fg-muted">
-                  {formatDuration(item.seconds)}
+                  {formatValue(item.seconds)}
                   <span className="ml-2 text-fg-subtle">
                     {(share * 100).toFixed(share < 0.1 ? 1 : 0)}%
                   </span>

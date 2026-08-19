@@ -216,3 +216,149 @@ export type BrandingResponse = {
   overrides: Branding
   defaults: Branding
 }
+
+export type DayTotal = {
+  date: string
+  seconds: number
+}
+
+export type WeekdayStat = {
+  /** 0 is Sunday, matching Date.getDay(). */
+  weekday: number
+  total_seconds: number
+  average_seconds: number
+  days: number
+}
+
+export type Streak = {
+  current: number
+  longest: number
+  longest_start: string | null
+  longest_end: string | null
+}
+
+export type InsightsResponse = {
+  from: string
+  to: string
+  total_seconds: number
+  daily_average: number
+  active_days: number
+  day_count: number
+  ai_seconds: number
+  human_seconds: number
+  most_active_day: DayTotal | null
+  daily: DayTotal[]
+  weekdays: WeekdayStat[]
+  streak: Streak
+  projects: SummaryItem[]
+  languages: SummaryItem[]
+  editors: SummaryItem[]
+  operating_systems: SummaryItem[]
+  machines: SummaryItem[]
+  categories: SummaryItem[]
+  language_colors: Record<string, string>
+  editor_colors: Record<string, string>
+  os_colors: Record<string, string>
+}
+
+export type WrappedResponse = InsightsResponse & { year: number }
+
+export type AITokens = {
+  input: number
+  cached_input: number
+  output: number
+  total: number
+}
+
+export type AILines = {
+  ai_added: number
+  ai_removed: number
+  human_added: number
+  human_removed: number
+}
+
+export type AICost = {
+  input: number
+  cached_input: number
+  output: number
+  total: number
+  /** False when no price is configured for the model, in which case the figures are 0. */
+  priced: boolean
+}
+
+export type AIModelStat = {
+  model: string
+  version: string
+  lines: AILines
+  tokens: AITokens
+  cost: AICost
+  prompt_count: number
+  session_count: number
+}
+
+export type AIDayStat = {
+  date: string
+  lines: AILines
+  tokens: AITokens
+  cost: AICost
+  /** False when the day predates cache-token recording, making its cost an upper bound. */
+  cache_tracked: boolean
+}
+
+export type AIProjectStat = {
+  project: string
+  lines: AILines
+  tokens: AITokens
+  cost: AICost
+}
+
+export type AIOverviewResponse = {
+  from: string
+  to: string
+  totals: {
+    lines: AILines
+    tokens: AITokens
+    cost: AICost
+    prompt_count: number
+    prompt_length_total: number
+    session_count: number
+    heartbeat_count: number
+    unpriced_tokens: number
+    tokens_tracked: AITokens
+    cost_tracked: AICost
+  }
+  by_model: AIModelStat[]
+  by_day: AIDayStat[]
+  by_project: AIProjectStat[]
+  ai_seconds: number
+  human_seconds: number
+  cached_tokens_since: string | null
+  prices_configured: boolean
+}
+
+export type AIFile = {
+  entity: string
+  project: string
+  ai_lines: number
+  human_lines: number
+  prompts: number
+  heartbeats: number
+}
+
+export type AIFilesResponse = {
+  items: AIFile[]
+  limit: number
+  truncated: boolean
+}
+
+/** model -> version -> price per million tokens. */
+export type AIPriceTable = Record<
+  string,
+  Record<string, { input: number; cached_input: number; output: number }>
+>
+
+export type AIPricesResponse = {
+  prices: AIPriceTable
+  defaults: AIPriceTable
+  customized: boolean
+}

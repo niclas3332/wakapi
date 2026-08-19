@@ -6,6 +6,9 @@ import { SummaryPage } from '@/pages/Summary'
 import { ProjectsPage } from '@/pages/Projects'
 import { LeaderboardPage } from '@/pages/Leaderboard'
 import { SettingsPage } from '@/pages/Settings'
+import { InsightsPage } from '@/pages/Insights'
+import { WrappedPage } from '@/pages/Wrapped'
+import { AiOverviewPage } from '@/pages/AiOverview'
 
 export const router = createBrowserRouter(
   [
@@ -17,6 +20,9 @@ export const router = createBrowserRouter(
         { path: 'projects', element: <ProjectsPage /> },
         { path: 'leaderboard', element: <LeaderboardPage /> },
         { path: 'settings', element: <SettingsPage /> },
+        { path: 'insights', element: <InsightsPage /> },
+        { path: 'wrapped', element: <WrappedPage /> },
+        { path: 'ai', element: <AiOverviewPage /> },
       ],
     },
   ],
