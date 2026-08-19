@@ -218,7 +218,7 @@ func (suite *SummaryServiceTestSuite) TestSummaryService_Retrieve() {
 
 	suite.SummaryRepository.On("GetByUserWithin", suite.TestUser, from, to).Return(summaries, nil)
 	suite.DurationService.On("Get", from, summaries[0].FromTime.T(), suite.TestUser, mock.Anything, mock.Anything, false).Return(models.Durations{}, nil)
-	suite.DurationService.On("Get", summaries[0].ToTime.T(), to, suite.TestUser, mock.Anything, mock.Anything, false).Return(models.Durations{}, nil)
+	suite.DurationService.On("Get", summaries[0].ToTime.T().Add(time.Second), to, suite.TestUser, mock.Anything, mock.Anything, false).Return(models.Durations{}, nil)
 
 	result, err = sut.Retrieve(from, to, suite.TestUser, nil, nil)
 
@@ -327,7 +327,10 @@ func (suite *SummaryServiceTestSuite) TestSummaryService_Retrieve() {
 	}
 
 	suite.SummaryRepository.On("GetByUserWithin", suite.TestUser, from, to).Return(summaries, nil)
-	suite.DurationService.On("Get", summaries[0].ToTime.T(), summaries[1].FromTime.T(), suite.TestUser, mock.Anything, mock.Anything, false).Return(filterDurations(summaries[0].ToTime.T(), summaries[1].FromTime.T(), suite.TestDurations), nil)
+	// The gap between two summaries starts one second after the first one ends, so the
+	// duration that produced that end is not counted again.
+	gapStart := summaries[0].ToTime.T().Add(time.Second)
+	suite.DurationService.On("Get", gapStart, summaries[1].FromTime.T(), suite.TestUser, mock.Anything, mock.Anything, false).Return(filterDurations(gapStart, summaries[1].FromTime.T(), suite.TestDurations), nil)
 
 	result, err = sut.Retrieve(from, to, suite.TestUser, nil, nil)
 
@@ -378,7 +381,9 @@ func (suite *SummaryServiceTestSuite) TestSummaryService_Retrieve_DuplicateSumma
 
 	suite.SummaryRepository.On("GetByUserWithin", suite.TestUser, from, to).Return(summaries, nil)
 	suite.DurationService.On("Get", from, summaries[0].FromTime.T(), suite.TestUser, mock.Anything, mock.Anything, false).Return(models.Durations{}, nil)
-	suite.DurationService.On("Get", summaries[0].ToTime.T(), to, suite.TestUser, mock.Anything, mock.Anything, false).Return(models.Durations{}, nil)
+	// The trailing gap starts one second after the summary ends, so the duration that
+	// produced that end is not fetched a second time.
+	suite.DurationService.On("Get", summaries[0].ToTime.T().Add(time.Second), to, suite.TestUser, mock.Anything, mock.Anything, false).Return(models.Durations{}, nil)
 
 	result, err = sut.Retrieve(from, to, suite.TestUser, nil, nil)
 
@@ -419,7 +424,9 @@ func (suite *SummaryServiceTestSuite) TestSummaryService_Retrieve_ZeroLengthSumm
 
 	suite.SummaryRepository.On("GetByUserWithin", suite.TestUser, from, to).Return(summaries, nil)
 	suite.DurationService.On("Get", from, summaries[0].FromTime.T(), suite.TestUser, mock.Anything, mock.Anything, false).Return(models.Durations{}, nil)
-	suite.DurationService.On("Get", summaries[0].ToTime.T().Add(1*time.Second), to, suite.TestUser, mock.Anything, mock.Anything, false).Return(models.Durations{}, nil)
+	// A zero-length summary is first stretched by one second (fixZeroDuration), and the
+	// gap after it then starts one second later again.
+	suite.DurationService.On("Get", summaries[0].ToTime.T().Add(2*time.Second), to, suite.TestUser, mock.Anything, mock.Anything, false).Return(models.Durations{}, nil)
 
 	result, err = sut.Retrieve(from, to, suite.TestUser, nil, nil)
 
@@ -464,7 +471,7 @@ func (suite *SummaryServiceTestSuite) TestSummaryService_Retrieve_DateRange() {
 
 	suite.SummaryRepository.On("GetByUserWithin", suite.TestUser, from, to).Return(summaries, nil)
 	suite.DurationService.On("Get", from, summaries[0].FromTime.T(), suite.TestUser, mock.Anything, mock.Anything, false).Return(models.Durations{}, nil)
-	suite.DurationService.On("Get", summaries[0].ToTime.T(), to, suite.TestUser, mock.Anything, mock.Anything, false).Return(models.Durations{}, nil)
+	suite.DurationService.On("Get", summaries[0].ToTime.T().Add(time.Second), to, suite.TestUser, mock.Anything, mock.Anything, false).Return(models.Durations{}, nil)
 
 	result, err = sut.Retrieve(from, to, suite.TestUser, nil, nil)
 
@@ -693,19 +700,49 @@ func (suite *SummaryServiceTestSuite) TestSummaryService_getMissingIntervals() {
 	r3 := sut.getMissingIntervals(from1, to2, summaries, false)
 	assert.Len(suite.T(), r3, 0)
 
+	// A gap starts one second after the preceding summary ends, not exactly at its end.
+	// A summary's to-time is the start of its last duration and durations are fetched
+	// with time >= from, so starting the gap on that instant counted that duration a
+	// second time - about 7.6 minutes per day when summaries are retrieved day by day.
 	r4 := sut.getMissingIntervals(from1, to2, summaries, true)
 	assert.Len(suite.T(), r4, 1)
-	assert.Equal(suite.T(), to1, r4[0].Start)
+	assert.Equal(suite.T(), to1.Add(time.Second), r4[0].Start)
 	assert.Equal(suite.T(), from2, r4[0].End)
 
 	r5 := sut.getMissingIntervals(from1.Add(-time.Hour), to2.Add(time.Hour), summaries, true)
 	assert.Len(suite.T(), r5, 3)
+	// The leading gap is unaffected: it ends where the first summary begins.
 	assert.Equal(suite.T(), from1.Add(-time.Hour), r5[0].Start)
 	assert.Equal(suite.T(), from1, r5[0].End)
-	assert.Equal(suite.T(), to1, r5[1].Start)
+	assert.Equal(suite.T(), to1.Add(time.Second), r5[1].Start)
 	assert.Equal(suite.T(), from2, r5[1].End)
-	assert.Equal(suite.T(), to2, r5[2].Start)
+	assert.Equal(suite.T(), to2.Add(time.Second), r5[2].Start)
 	assert.Equal(suite.T(), to2.Add(time.Hour), r5[2].End)
+}
+
+// Retrieving a single day must not count the day's last duration twice: once inside the
+// stored summary and once again through the gap that follows it.
+func (suite *SummaryServiceTestSuite) TestSummaryService_SingleDayDoesNotDoubleCountTheLastDuration() {
+	sut := NewSummaryService(suite.SummaryRepository, suite.HeartbeatService, suite.DurationService, suite.AliasService, suite.ProjectLabelService)
+
+	dayStart, _ := time.Parse(time.RFC822, "25 Mar 22 00:00 UTC")
+	dayEnd := dayStart.AddDate(0, 0, 1)
+	summaryFrom := dayStart.Add(8 * time.Hour)
+	summaryTo := dayStart.Add(9 * time.Hour)
+
+	stored := []*models.Summary{{
+		FromTime: models.CustomTime(summaryFrom),
+		ToTime:   models.CustomTime(summaryTo),
+	}}
+
+	gaps := sut.getMissingIntervals(dayStart, dayEnd, stored, false)
+
+	// Leading gap up to the first entry, then everything strictly after the last one.
+	assert.Len(suite.T(), gaps, 2)
+	assert.Equal(suite.T(), dayStart, gaps[0].Start)
+	assert.Equal(suite.T(), summaryFrom, gaps[0].End)
+	assert.True(suite.T(), gaps[1].Start.After(summaryTo),
+		"the trailing gap must start after the stored summary's last duration, not on it")
 }
 
 func (suite *SummaryServiceTestSuite) TestSummaryService_HeartbeatCreateEvent_ClearsNewerSummaries() {

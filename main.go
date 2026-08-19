@@ -245,6 +245,7 @@ func main() {
 	uiProjectsHandler := uiRoutes.NewProjectsHandler(projectService, heartbeatService, aliasService, summaryService)
 	uiLeaderboardHandler := condition.Ternary[bool, routes.Handler](config.App.LeaderboardEnabled, uiRoutes.NewLeaderboardHandler(leaderboardService), routes.NewNoopHandler())
 	uiAIHandler := uiRoutes.NewAIHandler(aiStatsService, summaryService, heartbeatService)
+	uiInsightsHandler := uiRoutes.NewInsightsHandler(summaryService, heartbeatService, aiStatsService)
 	uiSettingsHandler := uiRoutes.NewSettingsHandler(userService, heartbeatService, durationService, summaryService, aliasService, aggregationService, languageMappingService, projectLabelService, keyValueService, mailService, apiKeyService, webAuthnService, brandingService)
 
 	// Compat Handlers
@@ -375,6 +376,7 @@ func main() {
 	uiLeaderboardHandler.RegisterRoutes(uiApiRouter)
 	uiSettingsHandler.RegisterRoutes(uiApiRouter)
 	uiAIHandler.RegisterRoutes(uiApiRouter)
+	uiInsightsHandler.RegisterRoutes(uiApiRouter)
 
 	// Static Routes
 	// https://github.com/golang/go/issues/43431
