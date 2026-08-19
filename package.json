@@ -1,6 +1,7 @@
 {
   "scripts": {
     "build": "npm run build:icons && npm run build:tailwind",
+    "build:app": "npm --prefix frontend ci && npm --prefix frontend run build",
     "build:tailwind": "tailwindcss build -i static/assets/css/app.css -o static/assets/css/app.dist.css --minify",
     "build:icons": "node scripts/bundle_icons.js",
     "build:all:compress": "npm run build && npm run compress",

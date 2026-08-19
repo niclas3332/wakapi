@@ -244,7 +244,13 @@ func main() {
 	wakatimeV1UserAgentsHandler := wtV1Routes.NewUserAgentsHandler(userService, heartbeatService)
 	shieldV1BadgeHandler := shieldsV1Routes.NewBadgeHandler(summaryService, userService)
 
+	// Static file system, shared by the asset server and the SPA shell handler
+	// https://github.com/golang/go/issues/43431
+	embeddedStatic, _ := fs.Sub(staticFiles, "static")
+	static := conf.ChooseFS("static", embeddedStatic)
+
 	// MVC Handlers
+	appHandler := routes.NewAppHandler(userService, static)
 	summaryHandler := routes.NewSummaryHandler(summaryService, userService, heartbeatService, durationService, aliasService)
 	settingsHandler := routes.NewSettingsHandler(userService, heartbeatService, durationService, summaryService, aliasService, aggregationService, languageMappingService, projectLabelService, keyValueService, mailService, apiKeyService, webAuthnService)
 	subscriptionHandler := routes.NewSubscriptionHandler(userService, mailService, keyValueService)
@@ -298,6 +304,7 @@ func main() {
 	router.Mount("/api", apiRouter)
 
 	// Route registrations
+	appHandler.RegisterRoutes(rootRouter)
 	homeHandler.RegisterRoutes(rootRouter)
 	loginHandler.RegisterRoutes(rootRouter)
 	imprintHandler.RegisterRoutes(rootRouter)
@@ -333,9 +340,6 @@ func main() {
 
 	// Static Routes
 	// https://github.com/golang/go/issues/43431
-	embeddedStatic, _ := fs.Sub(staticFiles, "static")
-	static := conf.ChooseFS("static", embeddedStatic)
-
 	assetsStaticFs := fsutils.NewExistsHttpFS(fsutils.NewExistsFS(static).WithCache(!config.IsDev()))
 	assetsFileServer := http.FileServer(assetsStaticFs)
 	if !config.IsDev() {
@@ -344,7 +348,7 @@ func main() {
 	staticFileServer := http.FileServer(http.FS(fsutils.NeuteredFileSystem{FS: static}))
 
 	router.Get("/contribute.json", staticFileServer.ServeHTTP)
-	router.Get("/assets/*", assetsFileServer.ServeHTTP)
+	router.With(middlewares.NewStaticCacheMiddleware().Handler).Get("/assets/*", assetsFileServer.ServeHTTP)
 	router.Get("/swagger-ui", http.RedirectHandler("swagger-ui/", http.StatusMovedPermanently).ServeHTTP) // https://github.com/swaggo/http-swagger/issues/44
 	router.Get("/swagger-ui/*", httpSwagger.WrapHandler)
 

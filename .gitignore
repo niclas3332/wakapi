@@ -23,3 +23,7 @@ scripts/mysql_to_*.yml
 *.db-shm
 *.db-wal
 *.db*.gz
+wakapi.yml
+
+# frontend (react spa)
+!frontend/package-lock.json
