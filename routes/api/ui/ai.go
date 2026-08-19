@@ -40,6 +40,7 @@ func (h *AIHandler) RegisterRoutes(router chi.Router) {
 	router.Get("/ai/files", h.GetFiles)
 	router.Get("/admin/ai-prices", h.GetPrices)
 	router.Put("/admin/ai-prices", h.UpdatePrices)
+	router.Delete("/admin/ai-prices", h.ResetPrices)
 }
 
 type aiTokensDTO struct {
@@ -453,4 +454,22 @@ func (h *AIHandler) UpdatePrices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondMessage(w, r, http.StatusOK, "Price table saved.")
+}
+
+// ResetPrices drops the stored table so the built-in defaults apply again.
+//
+// Distinct from saving a copy of the defaults: that would keep the instance pinned to
+// today's rates, and a later wakapi update carrying new ones would never reach it.
+func (h *AIHandler) ResetPrices(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireAdmin(w, r); !ok {
+		return
+	}
+
+	if err := h.aiStatsSrvc.ResetPrices(); err != nil {
+		conf.Log().Request(r).Error("failed to reset ai price table", "error", err)
+		respondError(w, r, http.StatusInternalServerError, "could not reset the price table")
+		return
+	}
+
+	respondMessage(w, r, http.StatusOK, "Back to the built-in prices.")
 }

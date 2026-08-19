@@ -60,6 +60,16 @@ func (srv *AIStatsService) SetPrices(table models.AIPriceTable) error {
 	return nil
 }
 
+// ResetPrices removes the stored table, so the built-in defaults apply again and keep
+// applying as they are updated.
+func (srv *AIStatsService) ResetPrices() error {
+	if err := srv.kvSrvc.DeleteString(models.AIPricesKey); err != nil {
+		return err
+	}
+	srv.reloadPrices()
+	return nil
+}
+
 // HasStoredPrices reports whether an operator has edited the table, so the settings
 // screen can say whether it is showing defaults or their own numbers.
 func (srv *AIStatsService) HasStoredPrices() bool {

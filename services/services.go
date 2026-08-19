@@ -140,6 +140,7 @@ type IActivityService interface {
 type IAIStatsService interface {
 	Prices() models.AIPriceTable
 	SetPrices(models.AIPriceTable) error
+	ResetPrices() error
 	HasStoredPrices() bool
 	AggregateDay(*models.User, time.Time) error
 	AggregateRange(*models.User, time.Time, time.Time) error

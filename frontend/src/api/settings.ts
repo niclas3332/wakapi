@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { request, ApiError } from './client'
-import type { Branding, BrandingResponse, SettingsResponse } from './types'
+import type {
+  AIPricesResponse,
+  AIPriceTable,
+  Branding,
+  BrandingResponse,
+  SettingsResponse,
+} from './types'
 
 export const SETTINGS_KEY = ['settings']
 
@@ -16,6 +22,14 @@ export function useBranding(enabled: boolean) {
   return useQuery({
     queryKey: ['branding'],
     queryFn: () => request<BrandingResponse>('/admin/branding'),
+    enabled,
+  })
+}
+
+export function useAIPrices(enabled: boolean) {
+  return useQuery({
+    queryKey: ['ai-prices'],
+    queryFn: () => request<AIPricesResponse>('/admin/ai-prices'),
     enabled,
   })
 }
@@ -157,4 +171,9 @@ export const settingsApi = {
       method: 'PUT',
       body,
     }),
+
+  updateAIPrices: (body: AIPriceTable) =>
+    request<Message>('/admin/ai-prices', { method: 'PUT', body }),
+
+  resetAIPrices: () => request<Message>('/admin/ai-prices', { method: 'DELETE' }),
 }

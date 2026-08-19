@@ -5,6 +5,7 @@ import type { Branding } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { ActionStatus, Button, Field, FormActions, TextInput } from '@/components/ui/Form'
 import { ErrorState, LoadingRows } from '@/components/ui/State'
+import { AiPricesCard } from './AiPricesCard'
 
 type FieldSpec = {
   key: keyof Branding
@@ -192,6 +193,8 @@ export function AdminTab() {
         <div className="mt-4">{renderFields(ACTIVITY)}</div>
         {save}
       </Card>
+
+      <AiPricesCard />
     </>
   )
 }
