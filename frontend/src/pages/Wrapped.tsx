@@ -397,6 +397,21 @@ function Machine({ data }: { data: WrappedResponse }) {
   const total = data.ai_seconds + data.human_seconds
   if (total <= 0) return null
 
+  // A split bar showing one side at 100% is a bar that says nothing. When there was no
+  // AI activity that year, the sentence is the whole answer.
+  if (data.ai_seconds <= 0) {
+    return (
+      <Band label="You and the machine">
+        <p className="text-xl text-fg sm:text-2xl">
+          Every one of those {Math.round(data.human_seconds / 3600)} hours was typed by you.
+        </p>
+        <p className="mt-2 max-w-prose text-sm text-fg-muted">
+          Nothing was tracked in the AI category in {data.year}.
+        </p>
+      </Band>
+    )
+  }
+
   return (
     <Band
       label="You and the machine"

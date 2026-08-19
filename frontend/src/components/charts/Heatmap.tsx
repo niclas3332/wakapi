@@ -6,6 +6,9 @@ import type { DayTotal } from '@/api/types'
 const LEVELS = 4
 const WEEKDAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', '']
 
+/** Below this a cell is too small to hover or read, so the grid scrolls instead. */
+const MIN_CELL_PX = 8
+
 /**
  * Shading levels cut at quartiles of the days that were actually worked.
  *
@@ -76,33 +79,48 @@ export function Heatmap({ days }: { days: DayTotal[] }) {
         )}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <div className="flex shrink-0 flex-col gap-[3px] pt-0.5" aria-hidden="true">
-          {WEEKDAY_LABELS.map((label, index) => (
-            <span key={index} className="h-3 text-[10px] leading-3 text-fg-subtle">
-              {label}
-            </span>
-          ))}
-        </div>
+      {/*
+        The columns are fluid, not a fixed cell size.
+        A year is 53 columns; at 12px each that is wider than a readable text column,
+        so a fixed size forced a horizontal scrollbar on a desktop with room to spare.
+        Cells now divide whatever width they are given and stay square, down to a floor
+        below which they would stop being clickable - only then does this scroll.
+      */}
+      <div className="overflow-x-auto pb-1">
+        <div className="flex gap-2" style={{ minWidth: `${weeks.length * (MIN_CELL_PX + 3)}px` }}>
+          <div className="grid shrink-0 grid-rows-7 gap-[3px] pt-px" aria-hidden="true">
+            {WEEKDAY_LABELS.map((label, index) => (
+              <span key={index} className="text-[10px] leading-none text-fg-subtle">
+                {label}
+              </span>
+            ))}
+          </div>
 
-        <div className="flex gap-[3px]" onMouseLeave={() => setHovered(null)}>
-          {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} className="flex flex-col gap-[3px]">
-              {week.map((day, dayIndex) => (
-                <span
-                  key={dayIndex}
-                  className="h-3 w-3 rounded-[2px]"
-                  style={{
-                    backgroundColor: day
-                      ? `color-mix(in oklab, var(--color-accent) ${level(day.seconds) * 25}%, var(--color-ink-800))`
-                      : 'transparent',
-                  }}
-                  title={day ? `${formatDuration(day.seconds)} on ${formatDate(day.date)}` : undefined}
-                  onMouseEnter={() => day && setHovered(day)}
-                />
-              ))}
-            </div>
-          ))}
+          <div
+            className="grid min-w-0 flex-1 gap-[3px]"
+            style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}
+            onMouseLeave={() => setHovered(null)}
+          >
+            {weeks.map((week, weekIndex) => (
+              <div key={weekIndex} className="grid grid-rows-7 gap-[3px]">
+                {week.map((day, dayIndex) => (
+                  <span
+                    key={dayIndex}
+                    className="aspect-square w-full rounded-[2px]"
+                    style={{
+                      backgroundColor: day
+                        ? `color-mix(in oklab, var(--color-accent) ${level(day.seconds) * 25}%, var(--color-ink-800))`
+                        : 'transparent',
+                    }}
+                    title={
+                      day ? `${formatDuration(day.seconds)} on ${formatDate(day.date)}` : undefined
+                    }
+                    onMouseEnter={() => day && setHovered(day)}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
