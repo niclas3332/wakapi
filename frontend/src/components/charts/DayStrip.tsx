@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 
 import { colorFor } from '@/lib/colors'
+import { fileName } from '@/lib/entities'
 import { formatDuration, formatTime } from '@/lib/format'
 import type { HourlyProject } from '@/api/types'
 import { EmptyState } from '@/components/ui/State'
@@ -66,7 +67,10 @@ export function DayStrip({ from, projects, truncated }: DayStripProps) {
       >
         {hovered ? (
           <>
-            <span className="text-fg">{hovered.entity || hovered.project}</span>
+            {/* File name only - the full path is a tooltip, not a headline. */}
+            <span className="truncate text-fg" title={hovered.entity || undefined}>
+              {hovered.entity ? fileName(hovered.entity) : hovered.project}
+            </span>
             <span className="text-fg-subtle">·</span>
             <span className="text-fg-muted">{formatTime(hovered.start)}</span>
             <span className="text-fg-subtle">·</span>
@@ -128,7 +132,8 @@ export function DayStrip({ from, projects, truncated }: DayStripProps) {
                           seconds: item.seconds,
                         })
                       }
-                      aria-label={`${project.project}, ${item.entity || 'unknown file'}, ${formatTime(at)}, ${formatDuration(item.seconds)}`}
+                      title={item.entity || undefined}
+                      aria-label={`${project.project}, ${item.entity ? fileName(item.entity) : 'unknown file'}, ${formatTime(at)}, ${formatDuration(item.seconds)}`}
                     />
                   )
                 })}

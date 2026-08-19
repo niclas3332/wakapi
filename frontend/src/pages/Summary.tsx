@@ -22,7 +22,8 @@ import { ProjectHeader } from '@/components/ui/ProjectHeader'
 import { RankedBars } from '@/components/charts/RankedBars'
 import { DayStrip } from '@/components/charts/DayStrip'
 import { DailyBars } from '@/components/charts/DailyBars'
-import { ActivityChart } from '@/components/charts/ActivityChart'
+import { ActivityChart, ActivityShareLink } from '@/components/charts/ActivityChart'
+import { fileName } from '@/lib/entities'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
@@ -172,7 +173,11 @@ export function SummaryPage() {
             reference rather than pretending to follow the selected range.
           */}
           {bootstrap && (
-            <Card title="Activity" meta="past 12 months">
+            <Card
+              title="Activity"
+              meta="past 12 months"
+              actions={<ActivityShareLink userId={bootstrap.user.id} />}
+            >
               <ActivityChart userId={bootstrap.user.id} />
             </Card>
           )}
@@ -267,7 +272,14 @@ export function SummaryPage() {
               />
             )}
             {summary && summary.entities.length > 0 && (
-              <Breakdown title="Files" items={summary.entities} loading={false} />
+              // Entity keys are absolute paths, so the row shows the file name and
+              // keeps the path as a tooltip.
+              <Breakdown
+                title="Files"
+                items={summary.entities}
+                loading={false}
+                formatLabel={fileName}
+              />
             )}
           </div>
         </>
@@ -282,15 +294,21 @@ type BreakdownProps = {
   colors?: Record<string, string>
   loading: boolean
   onSelect?: (value: string) => void
+  formatLabel?: (key: string) => string
 }
 
-function Breakdown({ title, items, colors, loading, onSelect }: BreakdownProps) {
+function Breakdown({ title, items, colors, loading, onSelect, formatLabel }: BreakdownProps) {
   return (
     <Card title={title} meta={items && items.length > 0 ? `${items.length}` : undefined}>
       {loading || !items ? (
         <LoadingRows rows={6} />
       ) : (
-        <RankedBars items={items} identityColors={colors} onSelect={onSelect} />
+        <RankedBars
+          items={items}
+          identityColors={colors}
+          onSelect={onSelect}
+          formatLabel={formatLabel}
+        />
       )}
     </Card>
   )

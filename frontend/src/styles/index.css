@@ -112,6 +112,21 @@ body {
   color: var(--color-fg-muted);
 }
 
+/*
+ * Tailwind 4 dropped the v3 preflight rule that gave buttons a pointer cursor, so
+ * every control would otherwise show the default arrow. Put it back once, here,
+ * rather than remembering a utility class on every button.
+ */
+button:not(:disabled),
+summary,
+[role='button']:not([aria-disabled='true']) {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 *:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;

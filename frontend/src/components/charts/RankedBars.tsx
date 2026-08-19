@@ -14,6 +14,11 @@ type RankedBarsProps = {
   /** Called when a row is activated, e.g. to apply it as a filter. */
   onSelect?: (key: string) => void
   emptyMessage?: string
+  /**
+   * Shorten a key for display, keeping the full value as the row's tooltip.
+   * Used for file entities, whose keys are absolute paths.
+   */
+  formatLabel?: (key: string) => string
 }
 
 /**
@@ -29,6 +34,7 @@ export function RankedBars({
   initialLimit = 8,
   onSelect,
   emptyMessage = 'Nothing tracked in this range.',
+  formatLabel,
 }: RankedBarsProps) {
   const [expanded, setExpanded] = useState(false)
 
@@ -57,7 +63,9 @@ export function RankedBars({
           const width = max > 0 ? Math.min(100, Math.max((item.seconds / max) * 100, 1.5)) : 0
           const color = colorFor(item.key, index, identityColors)
           const isOther = item.key === OTHER_KEY
-          const label = isOther ? `Other (${otherCount})` : item.key
+          const label = isOther ? `Other (${otherCount})` : (formatLabel?.(item.key) ?? item.key)
+          // The tooltip carries the untruncated value whenever it differs.
+          const fullLabel = isOther || label === item.key ? undefined : item.key
           const interactive = Boolean(onSelect) && !isOther
 
           // Label and value sit on the card surface in text tokens, never on the
@@ -66,7 +74,9 @@ export function RankedBars({
           const content = (
             <>
               <div className="flex w-full items-baseline justify-between gap-3">
-                <span className="truncate text-sm text-fg">{label}</span>
+                <span className="truncate text-sm text-fg" title={fullLabel}>
+                  {label}
+                </span>
                 <span className="tabular shrink-0 text-xs text-fg-muted">
                   {formatDuration(item.seconds)}
                   <span className="ml-2 text-fg-subtle">
@@ -90,7 +100,7 @@ export function RankedBars({
                 <button
                   type="button"
                   onClick={() => onSelect?.(item.key)}
-                  title={`Filter by ${label}`}
+                  title={fullLabel ? `Filter by ${item.key}` : `Filter by ${label}`}
                   className="block w-full rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-ink-800"
                 >
                   {content}
