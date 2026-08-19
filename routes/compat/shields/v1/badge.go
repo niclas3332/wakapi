@@ -18,18 +18,20 @@ import (
 )
 
 type BadgeHandler struct {
-	config      *conf.Config
-	userSrvc    services.IUserService
-	summarySrvc services.ISummaryService
-	cache       *cache.Cache
+	config       *conf.Config
+	userSrvc     services.IUserService
+	summarySrvc  services.ISummaryService
+	brandingSrvc services.IBrandingService
+	cache        *cache.Cache
 }
 
-func NewBadgeHandler(summaryService services.ISummaryService, userService services.IUserService) *BadgeHandler {
+func NewBadgeHandler(summaryService services.ISummaryService, userService services.IUserService, brandingService services.IBrandingService) *BadgeHandler {
 	return &BadgeHandler{
-		summarySrvc: summaryService,
-		userSrvc:    userService,
-		cache:       cache.New(time.Hour, time.Hour),
-		config:      conf.Get(),
+		summarySrvc:  summaryService,
+		userSrvc:     userService,
+		brandingSrvc: brandingService,
+		cache:        cache.New(time.Hour, time.Hour),
+		config:       conf.Get(),
 	}
 }
 
@@ -63,9 +65,15 @@ func (h *BadgeHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	filters.WithSelectFilteredOnly()
 
+	// Only the summary-derived message is cached. Label and color come from the
+	// instance branding on every request, so an admin's change shows up right away
+	// instead of waiting out the cache.
 	cacheKey := fmt.Sprintf("%s_%v_%s", user.ID, *interval.Key, filters.Hash())
 	if cacheResult, ok := h.cache.Get(cacheKey); ok {
-		helpers.RespondJSON(w, r, http.StatusOK, cacheResult.(*v1.BadgeData))
+		cached := *(cacheResult.(*v1.BadgeData))
+		branding := h.brandingSrvc.Get()
+		cached.Label, cached.Color = branding.BadgeLabel, branding.BadgeColor
+		helpers.RespondJSON(w, r, http.StatusOK, &cached)
 		return
 	}
 
@@ -83,7 +91,7 @@ func (h *BadgeHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vm := v1.NewBadgeDataFrom(summary)
+	vm := v1.NewBadgeDataFrom(summary, h.brandingSrvc.Get())
 	h.cache.SetDefault(cacheKey, vm)
 	helpers.RespondJSON(w, r, http.StatusOK, vm)
 }

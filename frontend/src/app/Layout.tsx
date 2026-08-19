@@ -10,7 +10,7 @@ import { ApiKeyButton } from '@/components/ui/ApiKeyButton'
 type NavItem = { to: string; label: string; enabled?: boolean }
 
 const RESOURCES = [
-  { href: 'https://github.com/muety/wakapi', label: 'GitHub' },
+  { href: serverConfig.branding.footerUrl || 'https://github.com/muety/wakapi', label: 'GitHub' },
   { href: 'https://wakatime.com', label: 'WakaTime' },
 ]
 
@@ -148,22 +148,49 @@ export function Layout() {
           <Outlet />
         </main>
 
-        <footer className="tabular mx-auto max-w-[100rem] px-4 pb-8 text-[11px] text-fg-subtle lg:px-8">
-          wakapi {serverConfig.version} · {serverConfig.dbType}
+        {/*
+          The footer states what this instance is, not what it runs on: version and
+          database are operator facts that belong in logs, not under every page.
+        */}
+        <footer className="mx-auto max-w-[100rem] px-4 pb-8 text-[11px] text-fg-subtle lg:px-8">
+          {serverConfig.branding.footerUrl ? (
+            <a
+              href={serverConfig.branding.footerUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="transition-colors hover:text-fg-muted"
+            >
+              {serverConfig.branding.footerText}
+            </a>
+          ) : (
+            serverConfig.branding.footerText
+          )}
         </footer>
       </div>
     </div>
   )
 }
 
+/**
+ * Instance mark and name, both admin-configurable.
+ *
+ * The logo is an <img> rather than inlined markup: it is an admin-supplied source
+ * (url or data uri), and an image element cannot execute what it loads.
+ */
 function Brand() {
+  const { instanceName, logoUrl } = serverConfig.branding
+
   return (
-    <span className="flex items-center gap-2">
-      <span
-        aria-hidden="true"
-        className="inline-block h-5 w-5 rounded-full border-2 border-accent border-r-transparent"
-      />
-      <span className="text-sm font-semibold tracking-tight text-fg">wakapi</span>
+    <span className="flex min-w-0 items-center gap-2">
+      {logoUrl ? (
+        <img src={logoUrl} alt="" className="h-5 w-5 shrink-0 object-contain" />
+      ) : (
+        <span
+          aria-hidden="true"
+          className="inline-block h-5 w-5 shrink-0 rounded-full border-2 border-accent border-r-transparent"
+        />
+      )}
+      <span className="truncate text-sm font-semibold tracking-tight text-fg">{instanceName}</span>
     </span>
   )
 }

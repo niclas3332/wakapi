@@ -63,8 +63,16 @@ func (h *ActivityApiHandler) GetActivityChart(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	paramProject := strings.TrimSpace(r.URL.Query().Get("project"))
+
 	if authorizedUser == nil || authorizedUser.ID != requestedUser.ID {
 		if !requestedUser.ShareActivityChart {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		// A per-project chart names a project, so it needs project sharing on top of
+		// chart sharing - otherwise it would leak what the overall chart deliberately hides.
+		if paramProject != "" && !requestedUser.ShareProjects {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
@@ -73,7 +81,13 @@ func (h *ActivityApiHandler) GetActivityChart(w http.ResponseWriter, r *http.Req
 	paramDark := r.URL.Query().Has("dark") && r.URL.Query().Get("dark") != "false"
 	paramNoAttr := r.URL.Query().Has("noattr") && r.URL.Query().Get("noattr") != "false" // no attribution (no wakapi logo in bottom left corner)
 
-	chart, err := h.activityService.GetChart(requestedUser, models.IntervalPast12Months, paramDark, paramNoAttr, utils.IsNoCache(r, 6*time.Hour))
+	chart, err := h.activityService.GetChart(requestedUser, services.ChartOptions{
+		Interval:        models.IntervalPast12Months,
+		Project:         paramProject,
+		DarkTheme:       paramDark,
+		HideAttribution: paramNoAttr,
+		SkipCache:       utils.IsNoCache(r, 6*time.Hour),
+	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		conf.Log().Request(r).Error("failed to get activity chart for user", "userID", requestedUser.ID, "error", err)

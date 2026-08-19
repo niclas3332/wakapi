@@ -27,3 +27,4 @@ wakapi.yml
 
 # frontend (react spa)
 !frontend/package-lock.json
+.playwright-mcp/

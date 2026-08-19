@@ -55,7 +55,7 @@ func TestBadgeHandler_Get(t *testing.T) {
 	summaryServiceMock := new(mocks.SummaryServiceMock)
 	summaryServiceMock.On("Aliased", mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time"), &user1, mock.AnythingOfType("types.SummaryRetriever"), mock.AnythingOfType("*models.Filters"), mock.AnythingOfType("*time.Duration"), mock.Anything).Return(&summary1, nil)
 
-	badgeHandler := NewBadgeHandler(userServiceMock, summaryServiceMock)
+	badgeHandler := NewBadgeHandler(userServiceMock, summaryServiceMock, mocks.NewStaticBrandingServiceMock(&models.Branding{BadgeLabel: "wakapi.dev", BadgeColor: "2F855A"}))
 	badgeHandler.RegisterRoutes(apiRouter)
 
 	t.Run("when requesting badge", func(t *testing.T) {

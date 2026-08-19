@@ -200,6 +200,7 @@ func (srv *DurationService) getLive(from, to time.Time, user *models.User, inter
 	// adding a distinction here to use pure-sql aggregation for MySQL and Postgres, and traditional, programmatic aggregation for all other databases.
 	var count int
 	var latest *models.Duration
+	var latestKey string
 
 	mapping := make(map[string][]*models.Duration)
 	entityDurations := make(map[tuple.Tuple2[string, string]]time.Duration)
@@ -213,17 +214,21 @@ func (srv *DurationService) getLive(from, to time.Time, user *models.User, inter
 		if !includeEntities { // related to https://github.com/muety/wakapi/issues/876
 			d1 = d1.WithEntityIgnored()
 		}
-		d1 = d1.Hashed()
+		// Grouping runs on the cheap concatenated key; the reflective GroupHash is only
+		// computed for the durations that are actually kept, which for a long range is a
+		// tiny fraction of the heartbeats streamed.
+		key := d1.GroupKey()
 
 		// initialize map entry
-		if list, ok := mapping[d1.GroupHash]; !ok || len(list) < 1 {
-			mapping[d1.GroupHash] = []*models.Duration{}
+		if list, ok := mapping[key]; !ok || len(list) < 1 {
+			mapping[key] = []*models.Duration{}
 		}
 
 		// first heartbeat
 		if latest == nil {
-			mapping[d1.GroupHash] = append(mapping[d1.GroupHash], d1)
+			mapping[key] = append(mapping[key], d1.Hashed())
 			latest = d1
+			latestKey = key
 			continue
 		}
 
@@ -238,9 +243,10 @@ func (srv *DurationService) getLive(from, to time.Time, user *models.User, inter
 		// (a) heartbeats were too far apart each other or,
 		// (b) they are of a different entity or,
 		// (c) they span across two days
-		if dur >= heartbeatsTimeout || latest.GroupHash != d1.GroupHash || !sameDay {
-			mapping[d1.GroupHash] = append(mapping[d1.GroupHash], d1)
+		if dur >= heartbeatsTimeout || latestKey != key || !sameDay {
+			mapping[key] = append(mapping[key], d1.Hashed())
 			latest = d1
+			latestKey = key
 		} else {
 			latest.NumHeartbeats++
 			// TODO: think about how to fix this properly

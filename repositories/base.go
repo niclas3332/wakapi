@@ -116,6 +116,11 @@ func insertBatch[T any](data []T, model T, db *gorm.DB) error {
 	return nil
 }
 
+// streamBufferSize decouples the row reader from its consumer. An unbuffered channel
+// forces a goroutine handoff per row, which dominates the cost of aggregating a long
+// range: a year of heartbeats is hundreds of thousands of context switches.
+const streamBufferSize = 512
+
 func streamRows[T any](rows *sql.Rows, channel chan *T, db *gorm.DB, onErr func(error)) {
 	defer close(channel)
 	defer rows.Close()

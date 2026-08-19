@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router'
 
 import { useProjects } from '@/api/queries'
 import { stableColorFor } from '@/lib/colors'
-import { formatCount, formatDate } from '@/lib/format'
+import { formatCount, formatDate, formatDurationCompact } from '@/lib/format'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, LoadingRows } from '@/components/ui/State'
 
@@ -99,8 +99,15 @@ export function ProjectsPage() {
                       style={{ backgroundColor: stableColorFor(project.project) }}
                     />
                     <span className="truncate text-sm font-medium text-fg">{project.project}</span>
-                    <span className="tabular ml-auto shrink-0 text-xs text-fg-subtle">
-                      {formatCount(project.count)}
+                    {/*
+                      Total time, not the heartbeat count: "1,204" tells a reader
+                      nothing, "12 hrs 4 mins" is the thing they came to compare.
+                    */}
+                    <span
+                      className="tabular ml-auto shrink-0 text-xs text-fg"
+                      title={`${formatCount(project.count)} heartbeats`}
+                    >
+                      {formatDurationCompact(project.seconds)}
                     </span>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-xs text-fg-muted">

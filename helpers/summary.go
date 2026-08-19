@@ -9,6 +9,19 @@ import (
 	"github.com/muety/wakapi/models"
 )
 
+// summaryCacheGrid is the resolution the summary range is snapped to.
+//
+// Open-ended ranges end at time.Now(), so without this every request carries a
+// nanosecond-unique upper bound: the summary cache demands second precision to store
+// anything at all and a matching key to serve it, meaning a dashboard load recomputed
+// from scratch every single time. Snapping both ends onto a shared grid gives the
+// cache a stable key for the length of one grid step.
+//
+// The upper bound is rounded up rather than down, so the range never stops short of
+// now and no recorded activity can fall outside it. The cost is that a summary may be
+// served up to one grid step old.
+const summaryCacheGrid = 30 * time.Second
+
 func ParseSummaryParams(r *http.Request) (*models.SummaryParams, error) {
 	user := extractUser(r)
 	params := r.URL.Query()
@@ -18,8 +31,16 @@ func ParseSummaryParams(r *http.Request) (*models.SummaryParams, error) {
 
 	if interval := params.Get("interval"); interval != "" {
 		err, from, to = ResolveIntervalRawTZ(interval, user.TZ(), user.StartOfWeekDay())
+		if err != nil {
+			// Silently answering an unknown interval with an empty range makes a typo
+			// look like "you tracked nothing", which is worse than saying so.
+			return nil, err
+		}
 	} else if start := params.Get("start"); start != "" {
 		err, from, to = ResolveIntervalRawTZ(start, user.TZ(), user.StartOfWeekDay())
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		from, err = ParseDateTimeTZ(params.Get("from"), user.TZ())
 		if err != nil {
@@ -37,12 +58,24 @@ func ParseSummaryParams(r *http.Request) (*models.SummaryParams, error) {
 	filters := ParseSummaryFilters(r)
 
 	return &models.SummaryParams{
-		From:      from,
-		To:        to,
+		From:      snapDown(from),
+		To:        snapUp(to),
 		User:      user,
 		Recompute: recompute,
 		Filters:   filters,
 	}, nil
+}
+
+func snapDown(t time.Time) time.Time {
+	return t.Truncate(summaryCacheGrid)
+}
+
+func snapUp(t time.Time) time.Time {
+	if snapped := t.Truncate(summaryCacheGrid); snapped.Equal(t) {
+		return t
+	} else {
+		return snapped.Add(summaryCacheGrid)
+	}
 }
 
 func ParseSummaryFilters(r *http.Request) *models.Filters {

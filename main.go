@@ -85,6 +85,7 @@ var (
 	aggregationService     services.IAggregationService
 	mailService            services.IMailService
 	keyValueService        services.IKeyValueService
+	brandingService        services.IBrandingService
 	reportService          services.IReportService
 	activityService        services.IActivityService
 	diagnosticsService     services.IDiagnosticsService
@@ -188,6 +189,7 @@ func main() {
 	mailService = mail.NewMailService()
 	aliasService = services.NewAliasService(aliasRepository)
 	keyValueService = services.NewKeyValueService(keyValueRepository)
+	brandingService = services.NewBrandingService(keyValueService)
 	apiKeyService = services.NewApiKeyService(apiKeyRepository)
 	userService = services.NewUserService(keyValueService, mailService, apiKeyService, userRepository)
 	languageMappingService = services.NewLanguageMappingService(languageMappingRepository)
@@ -198,7 +200,7 @@ func main() {
 	summaryService = services.NewSummaryService(summaryRepository, heartbeatService, durationService, aliasService, projectLabelService)
 	aggregationService = services.NewAggregationService(userService, summaryService, heartbeatService, durationService)
 	reportService = services.NewReportService(summaryService, userService, mailService)
-	activityService = services.NewActivityService(summaryService)
+	activityService = services.NewActivityService(summaryService, brandingService)
 	diagnosticsService = services.NewDiagnosticsService(diagnosticsRepository)
 	housekeepingService = services.NewHousekeepingService(userService, heartbeatService, projectService, summaryService, aliasRepository) // can pass any repo here
 	miscService = services.NewMiscService(userService, heartbeatService, summaryService, keyValueService, mailService)
@@ -230,13 +232,13 @@ func main() {
 	diagnosticsHandler := api.NewDiagnosticsApiHandler(userService, diagnosticsService)
 	avatarHandler := api.NewAvatarHandler()
 	activityHandler := api.NewActivityApiHandler(userService, activityService)
-	badgeHandler := api.NewBadgeHandler(userService, summaryService)
+	badgeHandler := api.NewBadgeHandler(userService, summaryService, brandingService)
 	captchaHandler := api.NewCaptchaHandler()
 
 	// UI API Handlers (internal, consumed by the react frontend)
 	uiBootstrapHandler := uiRoutes.NewBootstrapHandler()
 	uiSummaryHandler := uiRoutes.NewSummaryHandler(summaryService, durationService, aliasService, heartbeatService)
-	uiProjectsHandler := uiRoutes.NewProjectsHandler(projectService, heartbeatService, aliasService)
+	uiProjectsHandler := uiRoutes.NewProjectsHandler(projectService, heartbeatService, aliasService, summaryService)
 	uiLeaderboardHandler := condition.Ternary[bool, routes.Handler](config.App.LeaderboardEnabled, uiRoutes.NewLeaderboardHandler(leaderboardService), routes.NewNoopHandler())
 
 	// Compat Handlers
@@ -249,7 +251,7 @@ func main() {
 	wakatimeV1HeartbeatsHandler := wtV1Routes.NewHeartbeatHandler(userService, heartbeatService)
 	wakatimeV1LeadersHandler := wtV1Routes.NewLeadersHandler(userService, leaderboardService)
 	wakatimeV1UserAgentsHandler := wtV1Routes.NewUserAgentsHandler(userService, heartbeatService)
-	shieldV1BadgeHandler := shieldsV1Routes.NewBadgeHandler(summaryService, userService)
+	shieldV1BadgeHandler := shieldsV1Routes.NewBadgeHandler(summaryService, userService, brandingService)
 
 	// Static file system, shared by the asset server and the SPA shell handler
 	// https://github.com/golang/go/issues/43431
@@ -257,9 +259,9 @@ func main() {
 	static := conf.ChooseFS("static", embeddedStatic)
 
 	// MVC Handlers
-	appHandler := routes.NewAppHandler(userService, static)
+	appHandler := routes.NewAppHandler(userService, brandingService, static)
 	summaryHandler := routes.NewSummaryHandler(summaryService, userService, heartbeatService, durationService, aliasService)
-	settingsHandler := routes.NewSettingsHandler(userService, heartbeatService, durationService, summaryService, aliasService, aggregationService, languageMappingService, projectLabelService, keyValueService, mailService, apiKeyService, webAuthnService)
+	settingsHandler := routes.NewSettingsHandler(userService, heartbeatService, durationService, summaryService, aliasService, aggregationService, languageMappingService, projectLabelService, keyValueService, mailService, apiKeyService, webAuthnService, brandingService)
 	subscriptionHandler := routes.NewSubscriptionHandler(userService, mailService, keyValueService)
 	projectsHandler := routes.NewProjectsHandler(userService, heartbeatService, projectService)
 	homeHandler := routes.NewHomeHandler(userService, keyValueService)

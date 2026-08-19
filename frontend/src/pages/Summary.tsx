@@ -175,10 +175,10 @@ export function SummaryPage() {
           {bootstrap && (
             <Card
               title="Activity"
-              meta="past 12 months"
-              actions={<ActivityShareLink userId={bootstrap.user.id} />}
+              meta={projectFilter ? `${projectFilter} · past 12 months` : 'past 12 months'}
+              actions={<ActivityShareLink userId={bootstrap.user.id} project={projectFilter} />}
             >
-              <ActivityChart userId={bootstrap.user.id} />
+              <ActivityChart userId={bootstrap.user.id} project={projectFilter} />
             </Card>
           )}
 

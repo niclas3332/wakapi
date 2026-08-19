@@ -83,6 +83,23 @@ db:
   compress: false                     # whether to use compression during transport (mysql only)
   automigrate_fail_silently: false    # whether to ignore schema auto-migration failures when starting up
 
+# Visual identity of this instance. Every value below is only the default - an admin can
+# override any of them at runtime under Settings -> Admin, and those overrides win.
+branding:
+  instance_name: Wakapi                                                 # name shown in the app header
+  badge_label: wakapi.dev                                               # default left-hand label of /api/badge/... (overridable per request via ?label=)
+  badge_color: 2F855A                                                   # default badge color (overridable per request via ?color=)
+  readme_card_title: Wakapi.dev Stats                                   # title of the github-readme-stats card offered in the settings
+  logo_url:                                                             # image shown top left in the app; https url, absolute path or a data: uri
+  footer_text: a wakapi fork                                            # footer note
+  footer_url: https://github.com/niclas3332/wakapi                      # where the footer note links to
+  activity_title: Wakapi.dev                                            # tooltip of the attribution logo on the activity chart
+  activity_logo_url: https://wakapi.dev/assets/images/logo-gh.svg       # attribution logo on the activity chart (empty to omit it)
+  activity_color_min_dark: '#242B3A'                                    # activity chart, dark theme, day without activity
+  activity_color_max_dark: '#047857'                                    # activity chart, dark theme, busiest day
+  activity_color_min_light: '#DCE3E1'                                   # activity chart, light theme, day without activity
+  activity_color_max_light: '#047857'                                   # activity chart, light theme, busiest day
+
 security:
   password_salt:                        # change this
   cookie_key:                           # optional, base64-encoded custom key used derive session and authentication keys

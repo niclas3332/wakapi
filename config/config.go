@@ -127,6 +127,30 @@ type appConfig struct {
 	Colors                    map[string]map[string]string `yaml:"-"`
 }
 
+// brandingConfig holds the instance's visual identity. Every value here is only the
+// default: an admin can override any of them at runtime, and those overrides live in
+// the database (see services.BrandingService). Config is the fallback, never the
+// authority, so a fresh instance still renders sensibly before anyone visits settings.
+type brandingConfig struct {
+	InstanceName    string `yaml:"instance_name" default:"Wakapi" env:"WAKAPI_BRANDING_INSTANCE_NAME"`
+	BadgeLabel      string `yaml:"badge_label" default:"wakapi.dev" env:"WAKAPI_BRANDING_BADGE_LABEL"`
+	BadgeColor      string `yaml:"badge_color" default:"2F855A" env:"WAKAPI_BRANDING_BADGE_COLOR"`
+	ReadmeCardTitle string `yaml:"readme_card_title" default:"Wakapi.dev Stats" env:"WAKAPI_BRANDING_README_CARD_TITLE"`
+	// LogoUrl is rendered top left in the app. Anything the browser accepts as an image
+	// source works, including a data: uri, which is how an admin-uploaded svg is stored.
+	LogoUrl string `yaml:"logo_url" default:"" env:"WAKAPI_BRANDING_LOGO_URL"`
+	// FooterText and FooterUrl replace the version/database line the legacy footer showed.
+	FooterText string `yaml:"footer_text" default:"a wakapi fork" env:"WAKAPI_BRANDING_FOOTER_TEXT"`
+	FooterUrl  string `yaml:"footer_url" default:"https://github.com/niclas3332/wakapi" env:"WAKAPI_BRANDING_FOOTER_URL"`
+
+	ActivityTitle         string `yaml:"activity_title" default:"Wakapi.dev" env:"WAKAPI_BRANDING_ACTIVITY_TITLE"`
+	ActivityLogoUrl       string `yaml:"activity_logo_url" default:"https://wakapi.dev/assets/images/logo-gh.svg" env:"WAKAPI_BRANDING_ACTIVITY_LOGO_URL"`
+	ActivityColorMinDark  string `yaml:"activity_color_min_dark" default:"#242B3A" env:"WAKAPI_BRANDING_ACTIVITY_COLOR_MIN_DARK"`
+	ActivityColorMaxDark  string `yaml:"activity_color_max_dark" default:"#047857" env:"WAKAPI_BRANDING_ACTIVITY_COLOR_MAX_DARK"`
+	ActivityColorMinLight string `yaml:"activity_color_min_light" default:"#DCE3E1" env:"WAKAPI_BRANDING_ACTIVITY_COLOR_MIN_LIGHT"`
+	ActivityColorMaxLight string `yaml:"activity_color_max_light" default:"#047857" env:"WAKAPI_BRANDING_ACTIVITY_COLOR_MAX_LIGHT"`
+}
+
 type securityConfig struct {
 	AllowSignup      bool `yaml:"allow_signup" default:"true" env:"WAKAPI_ALLOW_SIGNUP"`
 	OidcAllowSignup  bool `yaml:"oidc_allow_signup" default:"true" env:"WAKAPI_OIDC_ALLOW_SIGNUP"`
@@ -242,6 +266,7 @@ type Config struct {
 	InstanceId     string `yaml:"-"` // only temporary, changes between runs
 	EnablePprof    bool   `yaml:"enable_pprof" env:"WAKAPI_ENABLE_PPROF"`
 	App            appConfig
+	Branding       brandingConfig
 	Security       securityConfig
 	Db             dbConfig
 	Server         serverConfig

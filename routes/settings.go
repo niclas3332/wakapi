@@ -46,6 +46,7 @@ type SettingsHandler struct {
 	mailSrvc            services.IMailService
 	apiKeySrvc          services.IApiKeyService
 	WebAuthnSrvc        services.IWebAuthnService
+	brandingSrvc        services.IBrandingService
 	httpClient          *http.Client
 	aggregationLocks    map[string]bool
 }
@@ -76,6 +77,7 @@ func NewSettingsHandler(
 	mailService services.IMailService,
 	apiKeyService services.IApiKeyService,
 	webAuthnService services.IWebAuthnService,
+	brandingService services.IBrandingService,
 ) *SettingsHandler {
 	return &SettingsHandler{
 		config:              conf.Get(),
@@ -91,6 +93,7 @@ func NewSettingsHandler(
 		mailSrvc:            mailService,
 		apiKeySrvc:          apiKeyService,
 		WebAuthnSrvc:        webAuthnService,
+		brandingSrvc:        brandingService,
 		httpClient:          &http.Client{Timeout: 10 * time.Second},
 		aggregationLocks:    make(map[string]bool),
 	}
@@ -1214,7 +1217,7 @@ func (h *SettingsHandler) buildViewModel(r *http.Request, w http.ResponseWriter,
 	}
 
 	// readme card params
-	readmeCardTitle := "Wakapi.dev Stats"
+	readmeCardTitle := h.brandingSrvc.Get().ReadmeCardTitle
 	if err, maxRange := helpers.ResolveMaximumRange(user.ShareDataMaxDays); err == nil {
 		readmeCardTitle += fmt.Sprintf(" (%v)", maxRange.GetHumanReadable())
 	}

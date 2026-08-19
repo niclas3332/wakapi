@@ -75,7 +75,10 @@ export type HourlyResponse = {
 export type ProjectItem = {
   project: string
   top_language: string
+  /** Heartbeats recorded. Kept for tooltips; the list shows `seconds`. */
   count: number
+  /** All-time total tracked on this project. */
+  seconds: number
   first: string
   last: string
 }

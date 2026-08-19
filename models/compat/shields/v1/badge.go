@@ -7,11 +7,6 @@ import (
 
 // https://shields.io/endpoint
 
-const (
-	defaultLabel = "wakapi.dev"
-	defaultColor = "2F855A"
-)
-
 type BadgeData struct {
 	SchemaVersion int    `json:"schemaVersion"`
 	Label         string `json:"label"`
@@ -19,11 +14,13 @@ type BadgeData struct {
 	Color         string `json:"color"`
 }
 
-func NewBadgeDataFrom(summary *models.Summary) *BadgeData {
+// NewBadgeDataFrom renders a summary as badge data. Label and color are the instance's
+// branding defaults; a caller may still override them per request (?label=, ?color=).
+func NewBadgeDataFrom(summary *models.Summary, branding *models.Branding) *BadgeData {
 	return &BadgeData{
 		SchemaVersion: 1,
-		Label:         defaultLabel,
+		Label:         branding.BadgeLabel,
 		Message:       helpers.FmtWakatimeDuration(summary.TotalTime()),
-		Color:         defaultColor,
+		Color:         branding.BadgeColor,
 	}
 }

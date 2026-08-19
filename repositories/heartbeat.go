@@ -72,7 +72,7 @@ func (r *HeartbeatRepository) GetWithin(from, to time.Time, user *models.User) (
 }
 
 func (r *HeartbeatRepository) StreamWithin(from, to time.Time, user *models.User) (chan *models.Heartbeat, error) {
-	out := make(chan *models.Heartbeat)
+	out := make(chan *models.Heartbeat, streamBufferSize)
 
 	rows, err := r.buildTimeFilteredQuery(user.ID, from.Local(), to.Local()).Rows()
 	if err != nil {
@@ -113,7 +113,7 @@ func (r *HeartbeatRepository) GetAllWithinByFilters(from, to time.Time, user *mo
 }
 
 func (r *HeartbeatRepository) StreamWithinByFilters(from, to time.Time, user *models.User, filterMap map[string][]string) (chan *models.Heartbeat, error) {
-	out := make(chan *models.Heartbeat)
+	out := make(chan *models.Heartbeat, streamBufferSize)
 
 	q := r.buildTimeFilteredQuery(user.ID, from.Local(), to.Local())
 	q = filteredQuery(q, filterMap)

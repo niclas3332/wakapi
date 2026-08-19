@@ -69,6 +69,14 @@ type IDiagnosticsService interface {
 	Create(*models.Diagnostics) (*models.Diagnostics, error)
 }
 
+type IBrandingService interface {
+	Get() *models.Branding
+	Defaults() models.Branding
+	GetOverrides() *models.Branding
+	Set(*models.Branding) ([]string, error)
+	Revision() uint64
+}
+
 type IKeyValueService interface {
 	GetString(string) (*models.KeyStringValue, error)
 	MustGetString(string) *models.KeyStringValue
@@ -126,7 +134,7 @@ type ISummaryService interface {
 }
 
 type IActivityService interface {
-	GetChart(*models.User, *models.IntervalKey, bool, bool, bool) (string, error)
+	GetChart(*models.User, ChartOptions) (string, error)
 }
 
 type IReportService interface {

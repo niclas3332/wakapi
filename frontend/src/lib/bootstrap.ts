@@ -15,6 +15,17 @@ export type ServerConfig = {
   supportContact: string
   avatarUrlTemplate: string
   dataRetentionMonths: number
+  /**
+   * Instance identity. Ships in the shell rather than a fetch so the header paints
+   * with the right name and logo on the first frame. Editable under Settings → Admin.
+   */
+  branding: {
+    instanceName: string
+    /** Image source for the header logo. Empty means the built-in mark. */
+    logoUrl: string
+    footerText: string
+    footerUrl: string
+  }
   features: {
     leaderboardEnabled: boolean
     leaderboardRequireAuth: boolean
@@ -41,6 +52,12 @@ const DEV_FALLBACK: ServerConfig = {
   supportContact: '',
   avatarUrlTemplate: 'api/avatar/{username_hash}.svg',
   dataRetentionMonths: -1,
+  branding: {
+    instanceName: 'Wakapi',
+    logoUrl: '',
+    footerText: 'a wakapi fork',
+    footerUrl: 'https://github.com/niclas3332/wakapi',
+  },
   features: {
     leaderboardEnabled: true,
     leaderboardRequireAuth: false,

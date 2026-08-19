@@ -182,7 +182,11 @@ func TestProjects_PassesSearchAndPaging(t *testing.T) {
 	})
 	projectMock.On("GetUserProjectStats", user, mock.Anything, mock.Anything, "waka", pagingMatches, false).Return(stats, nil)
 
-	sut := NewProjectsHandler(projectMock, nil, nil)
+	summaryMock := new(mocks.SummaryServiceMock)
+	summaryMock.On("Aliased", mock.Anything, mock.Anything, user, mock.Anything, mock.Anything, mock.Anything, false).
+		Return(&models.Summary{Projects: models.SummaryItems{{Key: "wakapi", Total: 3600}}}, nil)
+
+	sut := NewProjectsHandler(projectMock, nil, nil, summaryMock)
 	rec := httptest.NewRecorder()
 	sut.Get(rec, newRequest("/api/ui/projects?page=1&page_size=1&q=waka", user))
 
@@ -191,6 +195,8 @@ func TestProjects_PassesSearchAndPaging(t *testing.T) {
 	assert.Len(t, resp.Items, 1)
 	assert.Equal(t, "wakapi", resp.Items[0].Project)
 	assert.Equal(t, int64(42), resp.Items[0].Count)
+	// summary item totals are a second count despite their time.Duration type
+	assert.Equal(t, float64(3600), resp.Items[0].Seconds)
 	assert.Equal(t, 1, resp.PageSize)
 	// a full page means there may be another one
 	assert.True(t, resp.HasMore)
@@ -198,7 +204,7 @@ func TestProjects_PassesSearchAndPaging(t *testing.T) {
 }
 
 func TestProjects_RequiresPrincipal(t *testing.T) {
-	sut := NewProjectsHandler(new(mocks.ProjectServiceMock), nil, nil)
+	sut := NewProjectsHandler(new(mocks.ProjectServiceMock), nil, nil, nil)
 	rec := httptest.NewRecorder()
 	sut.Get(rec, newRequest("/api/ui/projects", nil))
 

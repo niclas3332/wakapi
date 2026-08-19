@@ -19,18 +19,20 @@ import (
 )
 
 type BadgeHandler struct {
-	config      *conf.Config
-	cache       *cache.Cache
-	userSrvc    services.IUserService
-	summarySrvc services.ISummaryService
+	config       *conf.Config
+	cache        *cache.Cache
+	userSrvc     services.IUserService
+	summarySrvc  services.ISummaryService
+	brandingSrvc services.IBrandingService
 }
 
-func NewBadgeHandler(userService services.IUserService, summaryService services.ISummaryService) *BadgeHandler {
+func NewBadgeHandler(userService services.IUserService, summaryService services.ISummaryService, brandingService services.IBrandingService) *BadgeHandler {
 	return &BadgeHandler{
-		config:      conf.Get(),
-		cache:       cache.New(time.Hour, time.Hour),
-		userSrvc:    userService,
-		summarySrvc: summaryService,
+		config:       conf.Get(),
+		cache:        cache.New(time.Hour, time.Hour),
+		userSrvc:     userService,
+		summarySrvc:  summaryService,
+		brandingSrvc: brandingService,
 	}
 }
 
@@ -57,7 +59,10 @@ func (h *BadgeHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	filters.WithSelectFilteredOnly()
 
-	cacheKey := fmt.Sprintf("%s_%v_%s_%s", user.ID, *interval.Key, filters.Hash(), r.URL.RawQuery)
+	// The rendered svg bakes in label and color, so the branding revision has to be part
+	// of the cache key - otherwise an admin's change would only show after it expires.
+	branding := h.brandingSrvc.Get()
+	cacheKey := fmt.Sprintf("%s_%v_%s_%s_%d", user.ID, *interval.Key, filters.Hash(), r.URL.RawQuery, h.brandingSrvc.Revision())
 	noCache := utils.IsNoCache(r, 1*time.Hour)
 	if cacheResult, ok := h.cache.Get(cacheKey); ok && !noCache {
 		respondSvg(w, cacheResult.([]byte))
@@ -78,7 +83,7 @@ func (h *BadgeHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	badgeData := v1.NewBadgeDataFrom(summary)
+	badgeData := v1.NewBadgeDataFrom(summary, branding)
 	if customLabel := r.URL.Query().Get("label"); customLabel != "" {
 		badgeData.Label = customLabel
 	}

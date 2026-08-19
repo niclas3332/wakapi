@@ -51,19 +51,21 @@ type appShell struct {
 }
 
 type AppHandler struct {
-	config   *conf.Config
-	userSrvc services.IUserService
-	static   fs.FS
+	config       *conf.Config
+	userSrvc     services.IUserService
+	brandingSrvc services.IBrandingService
+	static       fs.FS
 
 	mu    sync.RWMutex
 	shell *appShell
 }
 
-func NewAppHandler(userService services.IUserService, static fs.FS) *AppHandler {
+func NewAppHandler(userService services.IUserService, brandingService services.IBrandingService, static fs.FS) *AppHandler {
 	h := &AppHandler{
-		config:   conf.Get(),
-		userSrvc: userService,
-		static:   static,
+		config:       conf.Get(),
+		userSrvc:     userService,
+		brandingSrvc: brandingService,
+		static:       static,
 	}
 	// A missing build must not stop the server from booting - ServeShell reports it.
 	if err := h.loadShell(); err != nil {
@@ -176,7 +178,18 @@ type appServerConfig struct {
 	SupportContact      string            `json:"supportContact"`
 	AvatarUrlTemplate   string            `json:"avatarUrlTemplate"`
 	DataRetentionMonths int               `json:"dataRetentionMonths"`
+	Branding            appServerBranding `json:"branding"`
 	Features            appServerFeatures `json:"features"`
+}
+
+// appServerBranding is the subset of the instance branding the app itself renders.
+// It ships in the shell rather than in a fetch so the header paints with the right
+// name and logo on the first frame instead of flashing a placeholder.
+type appServerBranding struct {
+	InstanceName string `json:"instanceName"`
+	LogoUrl      string `json:"logoUrl"`
+	FooterText   string `json:"footerText"`
+	FooterUrl    string `json:"footerUrl"`
 }
 
 type appServerFeatures struct {
@@ -191,6 +204,7 @@ type appServerFeatures struct {
 
 func (h *AppHandler) serverConfig() *appServerConfig {
 	c := h.config
+	branding := h.brandingSrvc.Get()
 	return &appServerConfig{
 		BasePath:            c.Server.BasePath,
 		AppBase:             h.appBase(),
@@ -200,6 +214,12 @@ func (h *AppHandler) serverConfig() *appServerConfig {
 		SupportContact:      c.App.SupportContact,
 		AvatarUrlTemplate:   c.App.AvatarURLTemplate,
 		DataRetentionMonths: c.App.DataRetentionMonths,
+		Branding: appServerBranding{
+			InstanceName: branding.InstanceName,
+			LogoUrl:      branding.LogoUrl,
+			FooterText:   branding.FooterText,
+			FooterUrl:    branding.FooterUrl,
+		},
 		Features: appServerFeatures{
 			LeaderboardEnabled:     c.App.LeaderboardEnabled,
 			LeaderboardRequireAuth: c.App.LeaderboardRequireAuth,

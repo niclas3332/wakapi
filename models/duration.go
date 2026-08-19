@@ -104,6 +104,36 @@ func (d *Duration) WithTimeout(interval time.Duration) *Duration {
 	return d
 }
 
+// groupKeySeparator cannot occur in any of the values it joins, so the concatenation
+// is unambiguous.
+const groupKeySeparator = "\x00"
+
+// GroupKey identifies the group a duration belongs to, covering exactly the same fields
+// as GroupHash.
+//
+// It exists purely for speed: GroupHash is produced by reflective struct hashing, which
+// is fine once per stored duration but ruinous when a year of heartbeats is aggregated
+// live - one hash per heartbeat, of which all but a few are thrown away immediately.
+// This is the in-memory key; GroupHash stays the persisted one, so nothing on disk
+// changes meaning.
+func (d *Duration) GroupKey() string {
+	parts := []string{
+		d.UserID,
+		d.Project,
+		d.Language,
+		d.Editor,
+		d.OperatingSystem,
+		d.Machine,
+		d.Category,
+		d.Branch,
+		d.Extension,
+	}
+	if !d.excludeEntity {
+		parts = append(parts, d.Entity)
+	}
+	return strings.Join(parts, groupKeySeparator)
+}
+
 func (d *Duration) Hashed() *Duration {
 	hash, err := hashstructure.Hash(d, &hashstructure.HashOptions{Hasher: xxhash.New()})
 	if err != nil {
