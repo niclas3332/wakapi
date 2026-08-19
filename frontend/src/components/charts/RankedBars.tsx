@@ -35,7 +35,6 @@ export function RankedBars({
   if (items.length === 0) return <EmptyState message={emptyMessage} />
 
   const sorted = [...items].sort((a, b) => b.seconds - a.seconds)
-  const max = sorted[0]?.seconds ?? 0
   const grandTotal = sorted.reduce((sum, item) => sum + item.seconds, 0)
 
   const { shown, otherSeconds, otherCount } = expanded
@@ -45,12 +44,17 @@ export function RankedBars({
   const rows = [...shown]
   if (otherSeconds > 0) rows.push({ key: OTHER_KEY, seconds: otherSeconds })
 
+  // Scale against the widest row that is actually drawn, not against the largest
+  // single entry: "Other" is a sum and routinely outgrows the top entry, which
+  // would push its bar past the full width of the track.
+  const max = rows.reduce((widest, item) => Math.max(widest, item.seconds), 0)
+
   return (
     <div>
       <ul className="space-y-1.5">
         {rows.map((item, index) => {
           const share = grandTotal > 0 ? item.seconds / grandTotal : 0
-          const width = max > 0 ? Math.max((item.seconds / max) * 100, 1.5) : 0
+          const width = max > 0 ? Math.min(100, Math.max((item.seconds / max) * 100, 1.5)) : 0
           const color = colorFor(item.key, index, identityColors)
           const isOther = item.key === OTHER_KEY
           const label = isOther ? `Other (${otherCount})` : item.key
@@ -70,7 +74,7 @@ export function RankedBars({
                   </span>
                 </span>
               </div>
-              <div className="mt-1.5 h-[3px] w-full rounded-full bg-ink-800">
+              <div className="mt-1.5 h-[3px] w-full overflow-hidden rounded-full bg-ink-800">
                 <div
                   aria-hidden="true"
                   className="h-full rounded-full"

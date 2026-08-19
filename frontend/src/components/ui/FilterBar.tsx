@@ -49,11 +49,15 @@ export function FilterBar({ filters }: { filters?: AvailableFilters }) {
         return (
           <label key={key} className="flex items-center gap-1.5">
             <span className="sr-only">{label}</span>
+            {/*
+              A select sizes itself to its widest option, and a long-range view can
+              hold hundreds of project names - so the width is pinned here.
+            */}
             <select
               value={value}
               onChange={(event) => setFilter(key, event.target.value)}
               disabled={options.length === 0}
-              className="rounded border border-ink-700 bg-ink-850 px-2 py-1.5 text-xs text-fg transition-colors hover:border-ink-600 disabled:opacity-40"
+              className="w-40 truncate rounded border border-ink-700 bg-ink-850 px-2 py-1.5 text-xs text-fg transition-colors hover:border-ink-600 disabled:opacity-40"
             >
               <option value="">{label}: all</option>
               {options.map((option) => (
